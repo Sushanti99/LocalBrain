@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import os
+import socket
 import webbrowser
 from dataclasses import dataclass
+from datetime import date, timedelta
 from pathlib import Path
 from threading import Timer
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 
 from brain.agent_backends import get_backend
@@ -20,7 +22,7 @@ from brain.models import AppConfig, EnvConfig
 from brain.prompts import build_chat_prompt, build_codex_prompt
 from brain.session import SessionManager
 from brain.summarizer import build_summary_prompt, fallback_summary, write_session_summary
-from brain.vault import diff_modified_files, resolve_vault_paths, snapshot_vault_mtimes
+from brain.vault import diff_modified_files, read_daily_note, resolve_vault_paths, snapshot_vault_mtimes
 
 
 @dataclass(slots=True)
@@ -83,6 +85,33 @@ def create_app(runtime: AppRuntime) -> FastAPI:
             return JSONResponse({"status": "error", "message": str(exc)}, status_code=409)
         except Exception as exc:
             return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
+
+    @app.get("/api/daily")
+    async def get_daily(offset: int = Query(default=0)):
+        if offset not in {0, -1}:
+            return JSONResponse(
+                {"status": "error", "message": "Only offset=0 (today) and offset=-1 (yesterday) are supported."},
+                status_code=400,
+            )
+
+        selected_date = date.today() + timedelta(days=offset)
+        selected_date_iso = selected_date.isoformat()
+        vault_paths = resolve_vault_paths(runtime.app_cfg)
+        content = read_daily_note(vault_paths, selected_date_iso)
+        relative_path = f"{runtime.app_cfg.vault.daily_folder}/{selected_date_iso}.md"
+        label = "Today" if offset == 0 else "Yesterday"
+
+        return JSONResponse(
+            {
+                "status": "ok",
+                "offset": offset,
+                "label": label,
+                "date": selected_date_iso,
+                "path": relative_path,
+                "exists": content is not None,
+                "content": content or "",
+            }
+        )
 
     @app.post("/api/session/end")
     async def post_end_session():
@@ -205,6 +234,14 @@ async def _run_backend_stream(runtime: AppRuntime, websocket: WebSocket, user_me
 
 
 def run_server(app_cfg: AppConfig, env_cfg: EnvConfig, *, open_browser: bool = True) -> None:
+    selected_port = resolve_server_port(app_cfg.server.host, app_cfg.server.port)
+    if selected_port != app_cfg.server.port:
+        print(
+            f"Port {app_cfg.server.port} is already in use on {app_cfg.server.host}. "
+            f"Starting Brain on port {selected_port} instead."
+        )
+        app_cfg.server.port = selected_port
+
     runtime = AppRuntime(
         app_cfg=app_cfg,
         env_cfg=env_cfg,
@@ -214,6 +251,26 @@ def run_server(app_cfg: AppConfig, env_cfg: EnvConfig, *, open_browser: bool = T
     if open_browser and app_cfg.server.auto_open_browser:
         Timer(1.0, lambda: webbrowser.open(f"http://{app_cfg.server.host}:{app_cfg.server.port}")).start()
     uvicorn.run(app, host=app_cfg.server.host, port=app_cfg.server.port)
+
+
+def resolve_server_port(host: str, preferred_port: int, *, max_port_tries: int = 20) -> int:
+    for port in range(preferred_port, min(preferred_port + max_port_tries, 65536)):
+        if port_is_available(host, port):
+            return port
+    raise RuntimeError(
+        f"Could not find an available port on {host} starting at {preferred_port} "
+        f"after trying {max_port_tries} ports."
+    )
+
+
+def port_is_available(host: str, port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((host, port))
+        except OSError:
+            return False
+    return True
 
 
 def _build_backend_env(env_cfg: EnvConfig) -> dict[str, str]:

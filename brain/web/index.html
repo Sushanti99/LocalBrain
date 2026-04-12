@@ -14,9 +14,12 @@
       --muted: #6c635c;
       --accent: #bd4f2b;
       --accent-dark: #8c3518;
+      --secondary: #245d59;
       --user: #fff4ec;
       --assistant: #f7f5ff;
       --error: #ffe4de;
+      --soft: #f3efe9;
+      --note: #fffaf4;
     }
     * { box-sizing: border-box; }
     body {
@@ -28,18 +31,42 @@
         radial-gradient(circle at bottom right, rgba(24, 92, 87, 0.16), transparent 30%),
         linear-gradient(180deg, #f8f4ef 0%, #efe4d7 100%);
       min-height: 100vh;
+      overflow: hidden;
+    }
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+      font: inherit;
+    }
+    button.secondary { background: var(--secondary); }
+    button.ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
     }
     .shell {
-      max-width: 980px;
-      margin: 24px auto;
+      width: min(100%, calc(100vw - 24px));
+      max-width: none;
+      margin: 12px auto;
+      height: calc(100vh - 24px);
       border: 1px solid var(--line);
       border-radius: 24px;
       overflow: hidden;
       backdrop-filter: blur(18px);
       background: var(--panel);
       box-shadow: 0 30px 80px rgba(74, 46, 25, 0.14);
+      display: flex;
+      flex-direction: column;
     }
-    header {
+    .app-header {
       display: flex;
       gap: 12px;
       justify-content: space-between;
@@ -50,20 +77,115 @@
     }
     .title { font-size: 24px; font-weight: 700; letter-spacing: 0.03em; }
     .meta { color: var(--muted); font-size: 14px; }
-    .actions { display: flex; gap: 10px; }
-    button {
-      border: 0;
-      border-radius: 999px;
-      padding: 10px 14px;
-      background: var(--accent);
-      color: white;
-      cursor: pointer;
-      font: inherit;
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(260px, 25%) minmax(0, 75%);
+      flex: 1;
+      min-height: 0;
     }
-    button.secondary { background: #245d59; }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .daily-panel {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      border-right: 1px solid var(--line);
+      background: rgba(255, 249, 241, 0.88);
+      overflow: hidden;
+    }
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 252, 247, 0.88);
+    }
+    .panel-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0;
+    }
+    .panel-meta {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .day-switcher {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .arrow-btn {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border-radius: 999px;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .daily-toolbar {
+      display: flex;
+      gap: 10px;
+      padding: 14px 18px 0;
+      flex-wrap: wrap;
+    }
+    .daily-status {
+      padding: 12px 18px 0;
+      color: var(--muted);
+      font-size: 14px;
+      min-height: 32px;
+    }
+    .daily-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+    }
+    .daily-note {
+      background: var(--note);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .daily-note h1 { font-size: 1.5rem; }
+    .daily-note h2 { font-size: 1.2rem; }
+    .daily-note h3 { font-size: 1rem; }
+    .daily-note ul,
+    .daily-note ol {
+      padding-left: 20px;
+    }
+    .daily-empty {
+      background: rgba(255, 250, 245, 0.92);
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .daily-empty p,
+    .daily-empty h3,
+    .daily-note h1,
+    .daily-note h2,
+    .daily-note h3 {
+      margin-top: 0;
+    }
+    .daily-path {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 14px;
+      word-break: break-word;
+    }
+    .actions { display: flex; gap: 10px; }
     #messages {
-      height: min(62vh, 720px);
+      flex: 1;
       overflow-y: auto;
       padding: 18px;
       display: flex;
@@ -79,7 +201,7 @@
     }
     .message.user { background: var(--user); }
     .message.assistant { background: var(--assistant); }
-    .message.system { background: #f3efe9; }
+    .message.system { background: var(--soft); }
     .message.error { background: var(--error); }
     .message .label {
       font-size: 12px;
@@ -116,17 +238,51 @@
       border-radius: 12px;
       padding: 12px;
     }
+    code {
+      font-family: "SFMono-Regular", "Menlo", monospace;
+    }
+    @media (max-width: 860px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .daily-panel {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+    }
     @media (max-width: 720px) {
-      header { flex-direction: column; align-items: flex-start; }
-      .actions { width: 100%; }
-      .actions button { flex: 1; }
-      form { grid-template-columns: 1fr; }
+      .shell {
+        width: 100%;
+        margin: 0;
+        height: 100vh;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+      }
+      .app-header,
+      .panel-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .actions {
+        width: 100%;
+      }
+      .actions button {
+        flex: 1;
+      }
+      .day-switcher {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      form {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
   <div class="shell">
-    <header>
+    <header class="app-header">
       <div>
         <div class="title">brain</div>
         <div class="meta">
@@ -136,18 +292,40 @@
         </div>
       </div>
       <div class="actions">
-        <button class="secondary" id="dailyBtn" type="button">Generate Daily</button>
         <button id="endBtn" type="button">End &amp; Summarize</button>
       </div>
     </header>
 
-    <div id="messages"></div>
+    <div class="layout">
+      <aside class="daily-panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Daily Note</h2>
+            <div class="panel-meta" id="dailyMeta">Today</div>
+          </div>
+          <div class="day-switcher">
+            <button class="ghost arrow-btn" id="prevDayBtn" type="button" aria-label="Show yesterday">&larr;</button>
+            <button class="ghost arrow-btn" id="nextDayBtn" type="button" aria-label="Show today">&rarr;</button>
+          </div>
+        </div>
+        <div class="daily-toolbar">
+          <button class="secondary" id="dailyBtn" type="button">Generate Daily</button>
+          <button class="ghost" id="refreshDailyBtn" type="button">Refresh</button>
+        </div>
+        <div class="daily-status" id="dailyStatus">Loading daily note...</div>
+        <div class="daily-content" id="dailyContent"></div>
+      </aside>
 
-    <form id="composer">
-      <textarea id="input" placeholder="Ask Brain to work on the vault. Enter sends; Shift+Enter adds a newline."></textarea>
-      <button id="sendBtn" type="submit">Send</button>
-    </form>
-    <div id="status">Connecting...</div>
+      <section class="chat-panel">
+        <div id="messages"></div>
+
+        <form id="composer">
+          <textarea id="input" placeholder="Ask Brain to work on the vault. Enter sends; Shift+Enter adds a newline."></textarea>
+          <button id="sendBtn" type="submit">Send</button>
+        </form>
+        <div id="status">Connecting...</div>
+      </section>
+    </div>
   </div>
 
   <script>
@@ -158,14 +336,22 @@
     const inputEl = document.getElementById("input");
     const sendBtn = document.getElementById("sendBtn");
     const dailyBtn = document.getElementById("dailyBtn");
+    const refreshDailyBtn = document.getElementById("refreshDailyBtn");
     const endBtn = document.getElementById("endBtn");
     const composer = document.getElementById("composer");
+    const dailyContentEl = document.getElementById("dailyContent");
+    const dailyStatusEl = document.getElementById("dailyStatus");
+    const dailyMetaEl = document.getElementById("dailyMeta");
+    const prevDayBtn = document.getElementById("prevDayBtn");
+    const nextDayBtn = document.getElementById("nextDayBtn");
 
     let socket = null;
     let activeAssistantMessage = null;
     let running = false;
     let reconnectTimer = null;
     let suppressReconnect = false;
+    let dailyOffset = 0;
+    let currentDailyNote = null;
 
     function setRunning(value) {
       running = value;
@@ -190,6 +376,89 @@
 
     function updateStatus(text) {
       statusEl.textContent = text;
+    }
+
+    function setDailyStatus(text) {
+      dailyStatusEl.textContent = text;
+    }
+
+    function updateDaySwitcher() {
+      prevDayBtn.disabled = dailyOffset === -1;
+      nextDayBtn.disabled = dailyOffset === 0;
+    }
+
+    function renderDailyNote(payload) {
+      currentDailyNote = payload;
+      dailyMetaEl.textContent = `${payload.label} · ${payload.date}`;
+      updateDaySwitcher();
+
+      if (payload.exists) {
+        dailyBtn.style.display = "none";
+        setDailyStatus(`Viewing ${payload.label.toLowerCase()}${payload.offset === 0 ? "'s" : "'s"} note.`);
+        dailyContentEl.innerHTML = `
+          <article class="daily-note">
+            ${marked.parse(payload.content)}
+            <div class="daily-path">Path: <code>${payload.path}</code></div>
+          </article>
+        `;
+        return;
+      }
+
+      const canGenerate = payload.offset === 0;
+      dailyBtn.style.display = canGenerate ? "inline-flex" : "none";
+      setDailyStatus(canGenerate ? "No daily note yet." : "No daily note for yesterday.");
+      dailyContentEl.innerHTML = `
+        <div class="daily-empty">
+          <h3>${canGenerate ? "No daily note for today" : "No daily note for yesterday"}</h3>
+          <p>${canGenerate ? "Generate today's note to see your tasks and context here." : "There is no saved note for the previous day in the vault."}</p>
+          <div class="daily-path">Path: <code>${payload.path}</code></div>
+        </div>
+      `;
+    }
+
+    async function loadDailyNote() {
+      updateDaySwitcher();
+      setDailyStatus("Loading daily note...");
+      dailyContentEl.innerHTML = "";
+      try {
+        const response = await fetch(`/api/daily?offset=${dailyOffset}`);
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.message || "Failed to load daily note.");
+        }
+        renderDailyNote(payload);
+      } catch (error) {
+        dailyBtn.style.display = dailyOffset === 0 ? "inline-flex" : "none";
+        setDailyStatus("Failed to load daily note.");
+        dailyContentEl.innerHTML = `
+          <div class="daily-empty">
+            <h3>Could not load the daily note</h3>
+            <p>${error.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    async function generateDailyNote() {
+      setDailyStatus("Generating daily note...");
+      dailyBtn.disabled = true;
+      try {
+        const response = await fetch("/api/daily", { method: "POST" });
+        const payload = await response.json();
+        if (response.ok) {
+          appendMessage("system", "Daily", `Generated: \`${payload.path}\``);
+          dailyOffset = 0;
+          await loadDailyNote();
+        } else {
+          appendMessage("error", "Daily", payload.message || "Failed to generate daily note.");
+          setDailyStatus("Ready.");
+        }
+      } catch (error) {
+        appendMessage("error", "Daily", error.message || "Failed to generate daily note.");
+        setDailyStatus("Ready.");
+      } finally {
+        dailyBtn.disabled = running;
+      }
     }
 
     function connect() {
@@ -285,15 +554,24 @@
     });
 
     dailyBtn.addEventListener("click", async () => {
-      updateStatus("Generating daily note...");
-      const response = await fetch("/api/daily", { method: "POST" });
-      const payload = await response.json();
-      if (response.ok) {
-        appendMessage("system", "Daily", `Generated: \`${payload.path}\``);
-        updateStatus("Ready.");
-      } else {
-        appendMessage("error", "Daily", payload.message || "Failed to generate daily note.");
-        updateStatus("Ready.");
+      await generateDailyNote();
+    });
+
+    refreshDailyBtn.addEventListener("click", async () => {
+      await loadDailyNote();
+    });
+
+    prevDayBtn.addEventListener("click", async () => {
+      if (dailyOffset > -1) {
+        dailyOffset -= 1;
+        await loadDailyNote();
+      }
+    });
+
+    nextDayBtn.addEventListener("click", async () => {
+      if (dailyOffset < 0) {
+        dailyOffset += 1;
+        await loadDailyNote();
       }
     });
 
@@ -311,6 +589,7 @@
       updateStatus("Ready.");
     });
 
+    loadDailyNote();
     connect();
   </script>
 </body>

@@ -22,7 +22,19 @@ def test_prompt_builder_includes_daily_and_core_context(tmp_path):
         history=[Turn(role="user", content="Earlier question", created_at=datetime.now().astimezone())],
     )
 
-    prompt = build_chat_prompt(app_cfg, session, "What should I do next?", vault_paths, inject_canonical_prompt=False)
+    from brain import prompts as prompts_module
+
+    class FakeDate:
+        @staticmethod
+        def today():
+            return type("FakeDay", (), {"isoformat": lambda self: "2026-04-11"})()
+
+    original_date = prompts_module.date
+    prompts_module.date = FakeDate
+    try:
+        prompt = build_chat_prompt(app_cfg, session, "What should I do next?", vault_paths, inject_canonical_prompt=False)
+    finally:
+        prompts_module.date = original_date
 
     assert "Today's daily note exists" in prompt
     assert "project.md" in prompt

@@ -1,9 +1,17 @@
 import asyncio
 
+import brain.session as session_module
 from brain.session import SessionManager
 
 
 def test_session_manager_lifecycle():
+    class FakeDate:
+        @staticmethod
+        def today():
+            return type("FakeDay", (), {"isoformat": lambda self: "2026-04-11"})()
+
+    original_date = session_module.date
+    session_module.date = FakeDate
     manager = SessionManager("claude-code")
 
     async def run():
@@ -22,4 +30,7 @@ def test_session_manager_lifecycle():
         assert closed.session_id == "2026-04-11-session-1"
         assert manager.current_session() is None
 
-    asyncio.run(run())
+    try:
+        asyncio.run(run())
+    finally:
+        session_module.date = original_date
