@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "brain"
+name = "localbrain"
 version = "1.0.0"
-description = "Local-first personal agent harness for an Obsidian vault"
+description = "Your second brain, on your laptop. Local-first personal AI agent for your Obsidian vault."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

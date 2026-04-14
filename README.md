@@ -1,19 +1,19 @@
-# brain
+# LocalBrain
 
-A local-first personal AI agent that lives inside your Obsidian vault.
+Your second brain, on your laptop. No cloud. No subscriptions. Just your data and an AI that knows it.
 
-You connect your existing tools — Obsidian, Gmail, Google Calendar, Notion — and Brain seeds a new vault from your real data. Then you chat with it through a minimal browser UI. The agent reads and writes your vault directly. Everything stays on your machine.
+You connect your existing tools — Obsidian, Gmail, Google Calendar, Notion — and LocalBrain seeds a new vault from your real data. Then you chat with it through a minimal browser UI. The agent reads and writes your vault directly. Everything stays on your machine.
 
 ---
 
 ## How it works
 
 ```
-Browser UI  ──►  Brain Server  ──►  Claude Code / Codex CLI
-                                           │
-                                    Obsidian Vault (markdown files)
-                                           │
-                               Gmail · Calendar · Notion · RSS
+Browser UI  ──►  LocalBrain Server  ──►  Claude Code / Codex CLI
+                                                │
+                                         Obsidian Vault (markdown files)
+                                                │
+                                    Gmail · Calendar · Notion · RSS
 ```
 
 - **Obsidian is the database.** No SQLite, no Redis — just markdown files.
@@ -28,8 +28,8 @@ Browser UI  ──►  Brain Server  ──►  Claude Code / Codex CLI
 ### 1. Install
 
 ```bash
-git clone https://github.com/your-username/brain
-cd brain
+git clone https://github.com/your-username/localbrain
+cd localbrain
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e '.[test]'
@@ -43,22 +43,22 @@ Requires [Claude Code](https://claude.ai/code) (or Codex) installed and authenti
 python bootstrap.py
 ```
 
-Walks you through Google OAuth (Gmail + Calendar), Notion API key, and RSS feeds. Writes credentials to `.env`. All integrations are optional — Brain works with just a vault.
+Walks you through Google OAuth (Gmail + Calendar), Notion API key, and RSS feeds. Writes credentials to `.env`. All integrations are optional — LocalBrain works with just a vault.
 
 ### 3. Seed a new vault
 
 ```bash
-brain seed --vault ~/my-brain-vault \
-           --from-obsidian ~/path/to/existing-vault \
-           --from-notion \
-           --from-gmail \
-           --from-calendar
+brain seed --vault ~/my-vault \
+                --from-obsidian ~/path/to/existing-vault \
+                --from-notion \
+                --from-gmail \
+                --from-calendar
 ```
 
-Brain collects your existing data, runs it through Claude, and populates:
+LocalBrain collects your existing data, runs it through Claude, and populates:
 
 ```
-my-brain-vault/
+my-vault/
 ├── core/          ← profile, projects, interests, people
 ├── references/    ← reference material (if found)
 ├── daily/         ← today's note with tasks, events, emails
@@ -71,7 +71,7 @@ Use `--dry-run` to inspect collected data before the agent writes anything.
 ### 4. Start
 
 ```bash
-brain start --vault ~/my-brain-vault
+brain start --vault ~/my-vault
 ```
 
 Opens `http://localhost:3000`. Chat with your vault. Click the **home icon** next to the title to browse all your notes.
@@ -111,7 +111,7 @@ python main.py chat  --vault PATH   # same as brain start
 
 ## Vault structure
 
-Brain uses five folders. Existing vault folders are mapped automatically — your `Daily/` becomes `daily`, your `References/` becomes `references`, etc.
+LocalBrain uses five folders. Existing vault folders are mapped automatically — your `Daily/` becomes `daily`, your `References/` becomes `references`, etc.
 
 | Folder | Purpose |
 |---|---|
