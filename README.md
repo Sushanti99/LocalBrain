@@ -129,6 +129,7 @@ The integration clients (`gmail_client.py`, `calendar_client.py`, `notion_client
 
 ## Roadmap
 
+- [ ] `brain setup` — guided OAuth app setup so each user owns their own Google credentials (avoid shared credential abuse)
 - [ ] Move integration clients into `brain/integrations/`
 - [ ] VPS deployment (Hetzner/Fly.io) with obsidian-headless sync
 - [ ] Mobile access via Tailscale
