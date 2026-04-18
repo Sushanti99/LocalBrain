@@ -15,6 +15,7 @@ import uvicorn
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 
+from brain import integrations_api
 from brain.agent_backends import get_backend
 from brain.daily import generate_daily_note
 from brain.env_config import integration_status
@@ -209,6 +210,7 @@ def create_app(runtime: AppRuntime) -> FastAPI:
         finally:
             await runtime.session_manager.detach_websocket(websocket)
 
+    integrations_api.register(app, runtime)
     return app
 
 

@@ -337,6 +337,36 @@
     code {
       font-family: "SFMono-Regular", "Menlo", monospace;
     }
+    .int-expand {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+      margin-top: 4px;
+    }
+    .int-expand.open { display: flex; }
+    .int-expand input {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font: inherit;
+      font-size: 14px;
+      background: var(--surface);
+      color: var(--text);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .int-expand-msg { font-size: 13px; min-height: 18px; }
+    .int-expand-msg.ok { color: #1a7a50; }
+    .int-expand-msg.err { color: var(--accent); }
+    .int-expand p {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.5;
+    }
+
     /* ── vault view ──────────────────────────────────────────────── */
     .vault-view {
       display: none;
@@ -430,6 +460,135 @@
       color: var(--muted);
       font-size: 15px;
     }
+    /* ── integrations view ──────────────────────────────────────────── */
+    .integrations-view {
+      display: none;
+      flex: 1;
+      min-height: 0;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 32px 36px;
+      gap: 28px;
+    }
+    .integrations-view.active { display: flex; }
+    .integrations-header { flex-shrink: 0; }
+    .integrations-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0 0 6px;
+    }
+    .integrations-sub {
+      color: var(--muted);
+      font-size: 15px;
+      margin: 0;
+    }
+    .integrations-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .int-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color 140ms, box-shadow 140ms;
+    }
+    .int-card:hover { border-color: var(--accent); box-shadow: 0 4px 20px var(--shadow); }
+    .int-card-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .int-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      background: var(--soft);
+    }
+    .int-name {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .int-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+    }
+    .int-badge.connected {
+      background: rgba(36, 130, 90, 0.12);
+      color: #1a7a50;
+    }
+    .int-badge.connected::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22a06b;
+      display: inline-block;
+    }
+    .int-badge.soon {
+      background: var(--soft);
+      color: var(--muted);
+    }
+    :root[data-theme="dark"] .int-badge.connected {
+      background: rgba(34, 160, 107, 0.18);
+      color: #4dc997;
+    }
+    .int-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin: 0;
+    }
+    .int-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .int-btn {
+      font-size: 13px;
+      padding: 8px 16px;
+      border-radius: 999px;
+    }
+    .int-btn.disconnect {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--line);
+    }
+    .int-btn.disconnect:hover { color: var(--accent); border-color: var(--accent); background: transparent; }
+
+    /* ── nav buttons in header ───────────────────────────────────── */
+    .nav-btn {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 120ms, color 120ms, border-color 120ms;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+    .nav-btn:hover { background: var(--soft); color: var(--text); border-color: var(--line); }
+    .nav-btn.active { background: var(--soft); color: var(--accent); border-color: var(--accent); }
+
     /* home icon button in header */
     .home-btn {
       width: 34px;
@@ -508,10 +667,18 @@
             <span id="session">session: disconnected</span>
           </div>
         </div>
-        <button class="home-btn" id="homeBtn" type="button" title="Vault files">
+        <button class="home-btn nav-btn" id="homeBtn" type="button" title="Vault files">
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M3 9.5L10 3l7 6.5V17a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
             <path d="M7.5 18v-5h5v5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="nav-btn" id="intBtn" type="button" title="Integrations">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="2" width="6" height="6" rx="2" stroke="currentColor" stroke-width="1.6"/>
+            <rect x="12" y="2" width="6" height="6" rx="2" stroke="currentColor" stroke-width="1.6"/>
+            <rect x="2" y="12" width="6" height="6" rx="2" stroke="currentColor" stroke-width="1.6"/>
+            <rect x="12" y="12" width="6" height="6" rx="2" stroke="currentColor" stroke-width="1.6"/>
           </svg>
         </button>
       </div>
@@ -557,6 +724,15 @@
         </form>
         <div id="status">Connecting...</div>
       </section>
+    </div>
+
+    <!-- Integrations view -->
+    <div class="integrations-view" id="intView">
+      <div class="integrations-header">
+        <h2 class="integrations-title">Integrations</h2>
+        <p class="integrations-sub">Connect your tools. brain² pulls context from them into your vault.</p>
+      </div>
+      <div class="integrations-grid" id="intGrid"></div>
     </div>
 
     <!-- Vault view (replaces layout when home is active) -->
@@ -887,6 +1063,7 @@
     function enterVaultMode() {
       vaultMode = true;
       homeBtn.classList.add("active");
+      if (intMode) exitIntMode();
       layoutEl.style.display = "none";
       vaultView.classList.add("active");
       loadVaultTree();
@@ -950,6 +1127,226 @@
         vaultContentBody.innerHTML = `<div class="vault-empty">Failed to load file.</div>`;
       }
     }
+
+    // ── integrations view ──────────────────────────────────────────────────────
+    const intBtn = document.getElementById("intBtn");
+    const intView = document.getElementById("intView");
+    const intGrid = document.getElementById("intGrid");
+    let intMode = false;
+
+    const INTEGRATIONS = [
+      { id: "gmail",    name: "Gmail",            icon: "✉️",  desc: "Pull recent emails and action items into your daily note.",       oauth: true  },
+      { id: "calendar", name: "Google Calendar",  icon: "📅",  desc: "Show today's events and upcoming meetings in your daily note.",   oauth: true  },
+      { id: "notion",   name: "Notion",           icon: "📄",  desc: "Sync open tasks and pages from your Notion workspace.",           inline: true },
+      { id: "slack",    name: "Slack",            icon: "💬",  desc: "Surface unread threads and mentions as daily context.",           inline: true, inlineType: "slack"   },
+      { id: "github",   name: "GitHub",           icon: "🐙",  desc: "Track open PRs, issues, and review requests.",                   inline: true, inlineType: "github" },
+      { id: "linear",   name: "Linear",           icon: "📐",  desc: "Track issues and project updates from Linear.",                  inline: true, inlineType: "linear" },
+      { id: "whatsapp", name: "WhatsApp",         icon: "📱",  desc: "Bring WhatsApp message context into your vault.",                soon: true   },
+      { id: "imessage", name: "iMessage",         icon: "💬",  desc: "Pull iMessage threads on Mac into daily context.",               soon: true   },
+      { id: "linkedin", name: "LinkedIn",         icon: "💼",  desc: "Track messages and connection activity.",                        soon: true   },
+    ];
+
+    function renderIntCard(integration, connected) {
+      const { id, name, icon, desc, soon, inline } = integration;
+      const card = document.createElement("div");
+      card.className = "int-card";
+
+      const badgeClass = soon ? "soon" : connected ? "connected" : "";
+      const badgeText  = soon ? "Coming soon" : connected ? "Connected" : "Not connected";
+
+      card.innerHTML = `
+        <div class="int-card-top">
+          <div class="int-icon">${icon}</div>
+          <div>
+            <div class="int-name">${name}</div>
+            <span class="int-badge ${badgeClass}" id="badge-${id}">${badgeText}</span>
+          </div>
+        </div>
+        <p class="int-desc">${desc}</p>
+        <div class="int-actions">
+          ${soon
+            ? `<button class="int-btn ghost" disabled>Coming soon</button>`
+            : connected
+              ? `<button class="int-btn ghost disconnect" data-id="${id}" data-action="disconnect">Disconnect</button>`
+              : `<button class="int-btn" data-id="${id}" data-action="connect">Connect</button>`
+          }
+        </div>
+        ${inline && !connected && !soon ? `
+        <div class="int-expand" id="expand-${id}">
+          ${id === "linear" ? `
+          <p>Go to <a href="https://linear.app/settings/api" target="_blank">linear.app/settings/api</a> → Personal API keys → Create key.</p>
+          <input id="linear-key" type="password" placeholder="lin_api_..." autocomplete="off">
+          <div class="int-expand-msg" id="linear-msg"></div>
+          <div class="row"><button class="int-btn" onclick="saveLinearKey()">Save</button></div>`
+          : id === "github" ? `
+          <p>Go to <a href="https://github.com/settings/tokens/new?scopes=repo,notifications,read:user" target="_blank">github.com/settings/tokens</a> → Generate new token (classic) → copy it.</p>
+          <input id="github-key" type="password" placeholder="ghp_..." autocomplete="off">
+          <div class="int-expand-msg" id="github-msg"></div>
+          <div class="row"><button class="int-btn" onclick="saveGithubKey()">Save</button></div>`
+          : id === "slack" ? `
+          <p>Go to <a href="https://api.slack.com/apps" target="_blank">api.slack.com/apps</a> → Create app → OAuth & Permissions → add scopes → Install → copy Bot Token.</p>
+          <input id="slack-key" type="password" placeholder="xoxb-..." autocomplete="off">
+          <div class="int-expand-msg" id="slack-msg"></div>
+          <div class="row"><button class="int-btn" onclick="saveSlackKey()">Save</button></div>` : `
+          <p>Go to <a href="https://www.notion.so/my-integrations" target="_blank">notion.so/my-integrations</a> → New integration → copy the secret.</p>
+          <input id="notion-key" type="password" placeholder="secret_..." autocomplete="off">
+          <div class="int-expand-msg" id="notion-msg"></div>
+          <div class="row"><button class="int-btn" onclick="saveNotionKey()">Save</button></div>`}
+        </div>` : ""}
+      `;
+
+      card.querySelectorAll("[data-action]").forEach(btn => {
+        btn.addEventListener("click", () => handleIntAction(id, btn.dataset.action));
+      });
+
+      return card;
+    }
+
+    async function saveNotionKey() {
+      const input = document.getElementById("notion-key");
+      const msg = document.getElementById("notion-msg");
+      const key = input ? input.value.trim() : "";
+      if (!key) { msg.className = "int-expand-msg err"; msg.textContent = "Paste your integration secret first."; return; }
+      msg.className = "int-expand-msg"; msg.textContent = "Saving...";
+      const res = await fetch("/api/integrations/notion/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "api_key=" + encodeURIComponent(key)
+      });
+      const data = await res.json();
+      if (data.status === "ok") {
+        msg.className = "int-expand-msg ok"; msg.textContent = "✓ Connected!";
+        setTimeout(() => loadIntegrations(), 800);
+      } else {
+        msg.className = "int-expand-msg err"; msg.textContent = data.message || "Something went wrong.";
+      }
+    }
+
+    async function saveGithubKey() {
+      const input = document.getElementById("github-key");
+      const msg = document.getElementById("github-msg");
+      const key = input ? input.value.trim() : "";
+      if (!key) { msg.className = "int-expand-msg err"; msg.textContent = "Paste your token first."; return; }
+      msg.className = "int-expand-msg"; msg.textContent = "Saving...";
+      const res = await fetch("/api/integrations/github/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "api_key=" + encodeURIComponent(key)
+      });
+      const data = await res.json();
+      if (data.status === "ok") {
+        msg.className = "int-expand-msg ok"; msg.textContent = "✓ Connected!";
+        setTimeout(() => loadIntegrations(), 800);
+      } else {
+        msg.className = "int-expand-msg err"; msg.textContent = data.message || "Something went wrong.";
+      }
+    }
+
+    async function saveSlackKey() {
+      const input = document.getElementById("slack-key");
+      const msg = document.getElementById("slack-msg");
+      const key = input ? input.value.trim() : "";
+      if (!key) { msg.className = "int-expand-msg err"; msg.textContent = "Paste your bot token first."; return; }
+      msg.className = "int-expand-msg"; msg.textContent = "Saving...";
+      const res = await fetch("/api/integrations/slack/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "api_key=" + encodeURIComponent(key)
+      });
+      const data = await res.json();
+      if (data.status === "ok") {
+        msg.className = "int-expand-msg ok"; msg.textContent = "✓ Connected!";
+        setTimeout(() => loadIntegrations(), 800);
+      } else {
+        msg.className = "int-expand-msg err"; msg.textContent = data.message || "Something went wrong.";
+      }
+    }
+
+    async function saveLinearKey() {
+      const input = document.getElementById("linear-key");
+      const msg = document.getElementById("linear-msg");
+      const key = input ? input.value.trim() : "";
+      if (!key) { msg.className = "int-expand-msg err"; msg.textContent = "Paste your API key first."; return; }
+      msg.className = "int-expand-msg"; msg.textContent = "Saving...";
+      const res = await fetch("/api/integrations/linear/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "api_key=" + encodeURIComponent(key)
+      });
+      const data = await res.json();
+      if (data.status === "ok") {
+        msg.className = "int-expand-msg ok"; msg.textContent = "✓ Connected!";
+        setTimeout(() => loadIntegrations(), 800);
+      } else {
+        msg.className = "int-expand-msg err"; msg.textContent = data.message || "Something went wrong.";
+      }
+    }
+
+    async function loadIntegrations() {
+      intGrid.innerHTML = `<div style="color:var(--muted);font-size:14px;">Loading...</div>`;
+      let status = {};
+      try {
+        const resp = await fetch("/api/integrations/status");
+        if (resp.ok) status = await resp.json();
+      } catch { /* server may not have endpoint yet — show all disconnected */ }
+
+      intGrid.innerHTML = "";
+      for (const integration of INTEGRATIONS) {
+        intGrid.appendChild(renderIntCard(integration, !!status[integration.id]));
+      }
+    }
+
+    function backendId(id) {
+      if (id === "gmail" || id === "calendar") return "google";
+      return id;
+    }
+
+    async function handleIntAction(id, action) {
+      const bid = backendId(id);
+      const integration = INTEGRATIONS.find(i => i.id === id);
+
+      if (action === "connect") {
+        if (integration && integration.inline) {
+          const expand = document.getElementById(`expand-${id}`);
+          if (expand) expand.classList.toggle("open");
+          return;
+        }
+        const popup = window.open(
+          `/api/integrations/${bid}/connect`,
+          `connect-${bid}`,
+          "width=580,height=660,menubar=no,toolbar=no,location=no"
+        );
+        const poll = setInterval(() => {
+          if (popup && popup.closed) {
+            clearInterval(poll);
+            loadIntegrations();
+          }
+        }, 500);
+      } else if (action === "disconnect") {
+        await fetch(`/api/integrations/${bid}/disconnect`, { method: "POST" });
+        loadIntegrations();
+      }
+    }
+
+    function enterIntMode() {
+      intMode = true;
+      intBtn.classList.add("active");
+      if (vaultMode) exitVaultMode();
+      layoutEl.style.display = "none";
+      intView.classList.add("active");
+      loadIntegrations();
+    }
+
+    function exitIntMode() {
+      intMode = false;
+      intBtn.classList.remove("active");
+      layoutEl.style.display = "";
+      intView.classList.remove("active");
+    }
+
+    intBtn.addEventListener("click", () => {
+      intMode ? exitIntMode() : enterIntMode();
+    });
 
     applyTheme(getSavedTheme());
     loadDailyNote();
