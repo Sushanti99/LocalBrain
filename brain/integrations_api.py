@@ -133,14 +133,15 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
     @app.get("/api/integrations/status")
     async def integrations_status():
         env = runtime.env_cfg
-        mcp = mcp_config.connected_integrations()
+        mcp_config.sync_from_env(runtime.app_cfg.agent)
+        mcp = mcp_config.connected_integrations(runtime.app_cfg.agent)
         return JSONResponse({
             "gmail":    env.google_token_file.exists(),
             "calendar": env.google_token_file.exists(),
             "notion":   bool(env.notion_api_key),
-            "github":   mcp.get("github", False) or bool(os.getenv("GITHUB_TOKEN")),
-            "slack":    mcp.get("slack", False) or bool(os.getenv("SLACK_BOT_TOKEN")),
-            "linear":   mcp.get("linear", False) or bool(os.getenv("LINEAR_API_KEY")),
+            "github":   mcp.get("github", False),
+            "slack":    mcp.get("slack", False),
+            "linear":   mcp.get("linear", False),
             "whatsapp": False,
             "imessage": False,
             "linkedin": False,

@@ -7,6 +7,7 @@ pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient
 
+from brain import mcp_config
 from brain.app_config import default_app_config
 from brain.env_config import load_env_config
 from brain.models import BackendValidationResult
@@ -164,6 +165,26 @@ def test_get_daily_route_rejects_unsupported_offsets(tmp_path, monkeypatch):
 
     assert response.status_code == 400
     assert "offset=0" in response.json()["message"]
+
+
+def test_integrations_status_uses_agent_specific_mcp_config(tmp_path, monkeypatch):
+    app_cfg = default_app_config(tmp_path / "vault", "codex")
+    env_cfg = load_env_config()
+    runtime = AppRuntime(app_cfg=app_cfg, env_cfg=env_cfg, session_manager=SessionManager(app_cfg.agent))
+    app = create_app(runtime)
+
+    monkeypatch.setattr(mcp_config, "CLAUDE_SETTINGS", tmp_path / "claude-settings.json")
+    monkeypatch.setattr(mcp_config, "CODEX_CONFIG", tmp_path / "codex-config.toml")
+    monkeypatch.setenv("LINEAR_API_KEY", "lin_api_status")
+
+    client = TestClient(app)
+    response = client.get("/api/integrations/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["linear"] is True
+    assert payload["github"] is False
+    assert payload["slack"] is False
 
 
 def test_resolve_server_port_uses_next_available_port(monkeypatch):

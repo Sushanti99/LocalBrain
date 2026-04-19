@@ -15,7 +15,7 @@ import uvicorn
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
-from brain import integrations_api
+from brain import integrations_api, mcp_config
 from brain.agent_backends import get_backend
 from brain.daily import generate_daily_note
 from brain.env_config import integration_status
@@ -227,6 +227,7 @@ def create_app(runtime: AppRuntime) -> FastAPI:
 
 async def _run_backend_stream(runtime: AppRuntime, websocket: WebSocket, user_message: str) -> None:
     backend = get_backend(runtime.app_cfg)
+    mcp_config.sync_from_env(runtime.app_cfg.agent)
     session = runtime.session_manager.get_or_create_session()
     vault_paths = resolve_vault_paths(runtime.app_cfg)
     prompt = (
