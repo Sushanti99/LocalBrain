@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import secrets
 from pathlib import Path
@@ -10,7 +11,7 @@ from typing import TYPE_CHECKING
 from fastapi import Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from brain import mcp_config
+from brain import ingest, mcp_config
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -128,6 +129,11 @@ def _remove_env(key: str) -> None:
 
 def register(app: "FastAPI", runtime: "AppRuntime") -> None:
 
+    def _trigger_ingest(integration_id: str) -> None:
+        asyncio.create_task(
+            ingest.run_ingest(runtime.app_cfg.vault.path, runtime.app_cfg.agent, integration_id, runtime.env_cfg)
+        )
+
     # ── status ────────────────────────────────────────────────────────────────
 
     @app.get("/api/integrations/status")
@@ -178,6 +184,8 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
             _update_env("GOOGLE_TOKEN_FILE", str(token_file))
         except Exception as exc:
             return HTMLResponse(_error_page(str(exc)))
+        _trigger_ingest("gmail")
+        _trigger_ingest("calendar")
         return HTMLResponse(_success_page("Google connected — Gmail and Calendar are live."))
 
     @app.post("/api/integrations/google/disconnect")
@@ -229,6 +237,7 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
             mcp_config.add_server("github", {"api_key": token})
         except Exception as exc:
             return HTMLResponse(_error_page(str(exc)))
+        _trigger_ingest("github")
         return HTMLResponse(_success_page("GitHub connected — brain² can now read your PRs and issues."))
 
     @app.post("/api/integrations/github/save")
@@ -238,6 +247,7 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
             return JSONResponse({"status": "error", "message": "Token cannot be empty."}, status_code=400)
         _update_env("GITHUB_TOKEN", token)
         mcp_config.add_server("github", {"api_key": token})
+        _trigger_ingest("github")
         return JSONResponse({"status": "ok"})
 
     @app.post("/api/integrations/github/disconnect")
@@ -289,6 +299,7 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
             mcp_config.add_server("slack", {"bot_token": bot_token, "team_id": team_id})
         except Exception as exc:
             return HTMLResponse(_error_page(str(exc)))
+        _trigger_ingest("slack")
         return HTMLResponse(_success_page("Slack connected — brain² can now read your messages."))
 
     @app.post("/api/integrations/slack/save")
@@ -298,6 +309,7 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
             return JSONResponse({"status": "error", "message": "Doesn't look like a Slack bot token (should start with xoxb-)."}, status_code=400)
         _update_env("SLACK_BOT_TOKEN", token)
         mcp_config.add_server("slack", {"bot_token": token, "team_id": os.getenv("SLACK_TEAM_ID", "")})
+        _trigger_ingest("slack")
         return JSONResponse({"status": "ok"})
 
     @app.post("/api/integrations/slack/disconnect")
@@ -346,6 +358,7 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
             mcp_config.add_server("notion", {"api_key": token})
         except Exception as exc:
             return HTMLResponse(_error_page(str(exc)))
+        _trigger_ingest("notion")
         return HTMLResponse(_success_page("Notion connected."))
 
     @app.post("/api/integrations/notion/save")
@@ -356,6 +369,7 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
         _update_env("NOTION_API_KEY", key)
         runtime.env_cfg.notion_api_key = key
         mcp_config.add_server("notion", {"api_key": key})
+        _trigger_ingest("notion")
         return JSONResponse({"status": "ok"})
 
     @app.post("/api/integrations/notion/disconnect")
@@ -374,6 +388,7 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
             return JSONResponse({"status": "error", "message": "API key cannot be empty."}, status_code=400)
         _update_env("LINEAR_API_KEY", key)
         mcp_config.add_server("linear", {"api_key": key})
+        _trigger_ingest("linear")
         return JSONResponse({"status": "ok"})
 
     @app.post("/api/integrations/linear/disconnect")

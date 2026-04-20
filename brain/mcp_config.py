@@ -61,6 +61,11 @@ _SERVERS: dict[str, dict[str, dict[str, object]]] = {
         ),
     },
     "linear": {
+        "claude-code": _stdio_server(
+            "npx",
+            ["-y", "@linear/mcp"],
+            {"api_key": "LINEAR_API_KEY"},
+        ),
         "codex": _remote_server(
             "https://mcp.linear.app/mcp",
             bearer_token_env_var="LINEAR_API_KEY",

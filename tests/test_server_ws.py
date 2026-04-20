@@ -175,6 +175,8 @@ def test_integrations_status_uses_agent_specific_mcp_config(tmp_path, monkeypatc
 
     monkeypatch.setattr(mcp_config, "CLAUDE_SETTINGS", tmp_path / "claude-settings.json")
     monkeypatch.setattr(mcp_config, "CODEX_CONFIG", tmp_path / "codex-config.toml")
+    for key in ("GITHUB_TOKEN", "SLACK_BOT_TOKEN", "SLACK_TEAM_ID", "NOTION_API_KEY"):
+        monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("LINEAR_API_KEY", "lin_api_status")
 
     client = TestClient(app)
