@@ -136,6 +136,8 @@
       border-bottom: 1px solid var(--line);
       background: var(--header-bg);
     }
+    .app-logo { width: 36px; height: 36px; object-fit: contain; flex-shrink: 0; }
+    [data-theme="dark"] .app-logo { filter: invert(1); }
     .title { font-size: 24px; font-weight: 700; letter-spacing: 0.03em; }
     .meta { color: var(--muted); font-size: 14px; }
     .layout {
@@ -785,6 +787,7 @@
   <div class="shell">
     <header class="app-header">
       <div style="display:flex;align-items:center;gap:12px;">
+        <img src="/brain-logo.png" alt="brain²" class="app-logo">
         <div>
           <div class="title">brain²</div>
           <div class="meta">

@@ -1,6 +1,10 @@
-# brain² (BrainSquared)
+<p align="center">
+  <img src="brain-logo.png" alt="brain²" width="96">
+</p>
 
-Your second brain, on your laptop. No cloud. No subscriptions. Just your data and an AI that knows it.
+<h1 align="center">brain² (BrainSquared)</h1>
+
+<p align="center">Your second brain, on your laptop. No cloud. No subscriptions. Just your data and an AI that knows it.</p>
 
 You connect your existing tools — Obsidian, Gmail, Google Calendar, Notion — and brain² seeds a new vault from your real data. Then you chat with it through a minimal browser UI. The agent reads and writes your vault directly. Everything stays on your machine.
 

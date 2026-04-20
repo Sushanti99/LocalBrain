@@ -41,6 +41,10 @@ def create_app(runtime: AppRuntime) -> FastAPI:
     async def index():
         return FileResponse(Path(__file__).parent / "web" / "index.html")
 
+    @app.get("/brain-logo.png")
+    async def logo():
+        return FileResponse(Path(__file__).parent / "web" / "brain-logo.png", media_type="image/png")
+
     @app.get("/api/status")
     async def get_status():
         backend = get_backend(runtime.app_cfg)
