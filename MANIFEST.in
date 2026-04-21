@@ -1,0 +1,4 @@
+include README.md
+include brain-logo.png
+recursive-include brain/web *
+recursive-include brain/templates *

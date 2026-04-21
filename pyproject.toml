@@ -5,9 +5,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "brainsquared"
 version = "1.0.0"
-description = "brain² (BrainSquared) — local-first personal AI agent for your Obsidian vault."
+description = "brain² — local-first personal AI agent for your Obsidian vault."
 readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["obsidian", "ai", "agent", "productivity", "vault", "claude"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Utilities",
+]
 dependencies = [
   "anthropic>=0.25.0",
   "fastapi>=0.110.0",
@@ -24,6 +39,11 @@ dependencies = [
   "websockets>=12.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Sushanti99/BrainSquared"
+Repository = "https://github.com/Sushanti99/BrainSquared"
+"Bug Tracker" = "https://github.com/Sushanti99/BrainSquared/issues"
+
 [project.optional-dependencies]
 test = [
   "httpx>=0.27.0",
@@ -38,3 +58,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 include = ["brain*"]
+
+[tool.setuptools.package-data]
+"brain.web" = ["*.html", "*.png", "*.css", "*.js"]
+"brain.templates" = ["*.yaml"]
