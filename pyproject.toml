@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brainsquared"
-version = "1.0.0"
-description = "brain² — local-first personal AI agent for your Obsidian vault."
+version = "1.0.1"
+description = "One interface for every app you use. brain² connects your tools, builds a local knowledge base, and surfaces what needs your attention — every day."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
