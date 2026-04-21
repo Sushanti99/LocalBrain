@@ -144,23 +144,40 @@
     .header-center { display: flex; justify-content: center; }
     .header-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
     .layout {
-      display: grid;
-      grid-template-columns: minmax(260px, 25%) minmax(0, 75%);
+      display: flex;
+      flex-direction: row;
       flex: 1;
       min-height: 0;
+      overflow: hidden;
     }
     .daily-panel {
       display: flex;
       flex-direction: column;
-      min-width: 0;
+      width: 25%;
+      min-width: 220px;
+      max-width: 60%;
       min-height: 0;
       border-right: 1px solid var(--line);
       background: var(--sidebar-bg);
       overflow: hidden;
+      flex-shrink: 0;
+    }
+    .resizer {
+      width: 5px;
+      cursor: col-resize;
+      flex-shrink: 0;
+      background: transparent;
+      transition: background 120ms;
+      position: relative;
+      z-index: 10;
+    }
+    .resizer:hover, .resizer.dragging {
+      background: var(--accent);
     }
     .chat-panel {
       display: flex;
       flex-direction: column;
+      flex: 1;
       min-width: 0;
       min-height: 0;
       overflow: hidden;
@@ -744,13 +761,9 @@
       .home-right { grid-template-columns: 1fr; }
     }
     @media (max-width: 860px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-      .daily-panel {
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
-      }
+      .layout { flex-direction: column; }
+      .daily-panel { width: 100% !important; max-width: 100%; min-width: 0; border-right: 0; border-bottom: 1px solid var(--line); }
+      .resizer { display: none; }
     }
     @media (max-width: 720px) {
       .shell {
@@ -861,6 +874,8 @@
         <div class="daily-status" id="dailyStatus">Loading daily note...</div>
         <div class="daily-content" id="dailyContent"></div>
       </aside>
+
+      <div class="resizer" id="panelResizer"></div>
 
       <section class="chat-panel">
         <div id="messages"></div>
@@ -983,6 +998,40 @@
     });
 
     initSettingsPopover();
+
+    // ── panel resizer ─────────────────────────────────────────────────
+    const resizerEl = document.getElementById("panelResizer");
+    const dailyPanelEl = document.querySelector(".daily-panel");
+    const layoutEl = document.querySelector(".layout");
+    const RESIZER_KEY = "brain2-panel-width";
+
+    (function restorePanelWidth() {
+      const saved = localStorage.getItem(RESIZER_KEY);
+      if (saved) dailyPanelEl.style.width = saved;
+    })();
+
+    let _resizing = false;
+    resizerEl.addEventListener("mousedown", e => {
+      _resizing = true;
+      resizerEl.classList.add("dragging");
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", e => {
+      if (!_resizing) return;
+      const rect = layoutEl.getBoundingClientRect();
+      const newWidth = Math.min(Math.max(e.clientX - rect.left, 220), rect.width * 0.65);
+      dailyPanelEl.style.width = newWidth + "px";
+    });
+    document.addEventListener("mouseup", () => {
+      if (!_resizing) return;
+      _resizing = false;
+      resizerEl.classList.remove("dragging");
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      localStorage.setItem(RESIZER_KEY, dailyPanelEl.style.width);
+    });
 
     let socket = null;
     let activeAssistantMessage = null;
