@@ -29,7 +29,7 @@ agents:
       - stream-json
       - --verbose
       - --model
-      - claude-opus-4-7
+      - claude-sonnet-4-6
     allowed_tools:
       - Read
       - Edit
