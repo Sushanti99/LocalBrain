@@ -105,113 +105,106 @@
     box-shadow: 0 0 0 4px rgba(123,196,127,0.18);
   }
 
-  /* THE EQUATION */
-  .equation {
+  /* ============ TOOLS HERO VISUAL ============ */
+  .tools-hero {
     display: flex; align-items: center;
-    gap: 32px;
-    margin-bottom: 60px;
+    gap: 48px;
+    margin-bottom: 64px;
     position: relative; z-index: 5;
     flex-wrap: wrap; justify-content: center;
   }
-  .eq-sticky {
-    width: 160px; height: 160px;
-    border-radius: 22px;
-    padding: 18px;
+
+  /* card cluster */
+  .tools-cluster {
+    position: relative;
+    width: 420px; height: 300px;
+    flex-shrink: 0;
+  }
+
+  .tc {
+    position: absolute;
+    width: 148px; height: 148px;
+    border-radius: 20px;
+    padding: 16px;
     display: flex; flex-direction: column;
-    box-shadow:
-      0 1px 2px rgba(0,0,0,0.04),
-      0 18px 40px -16px rgba(0,0,0,0.15);
-    transition: transform 300ms cubic-bezier(0.2, 0.8, 0.3, 1);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 16px 36px -14px rgba(0,0,0,0.14);
+    transition: transform 280ms cubic-bezier(0.2,0.8,0.3,1);
+    cursor: default;
   }
-  .eq-sticky:hover { transform: translateY(-4px) rotate(0deg) !important; }
-  .eq-sticky .pill {
+  .tc:hover { transform: translateY(-5px) rotate(0deg) !important; }
+
+  .tc-mail     { background: var(--card-peach);   left:0;    top:28px;  transform: rotate(-3deg); }
+  .tc-calendar { background: var(--card-blue);    left:130px; top:0;    transform: rotate(2.5deg); }
+  .tc-github   { background: var(--card-mint);    left:18px; top:148px; transform: rotate(3deg); }
+  .tc-slack    { background: var(--card-yellow);  left:158px; top:142px; transform: rotate(-2deg); }
+  .tc-notion   { background: var(--card-lavender); left:278px; top:72px; transform: rotate(1.5deg); }
+
+  .tc-pill {
     display: inline-block; align-self: flex-start;
-    padding: 5px 12px;
-    border-radius: 999px;
-    font-family: 'Inter', sans-serif;
-    font-size: 10px; font-weight: 700;
-    letter-spacing: 0.14em; color: var(--ink);
-  }
-  .eq-sticky .logo-area {
-    flex: 1;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 8px 0;
-  }
-  .eq-sticky .logo-name {
-    font-family: 'Inter', sans-serif;
-    font-weight: 700; font-size: 24px;
-    letter-spacing: -0.02em; color: var(--ink);
-    margin-top: 4px;
-  }
-  .eq-sticky .logo-sub {
+    padding: 4px 10px; border-radius: 999px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; color: var(--ink-muted);
-    margin-top: 4px;
-  }
-
-  .eq-claude { background: var(--card-peach); transform: rotate(-3deg); }
-  .eq-claude .pill { background: var(--pill-peach); }
-  .eq-codex { background: var(--card-blue); transform: rotate(2deg); }
-  .eq-codex .pill { background: var(--pill-blue); }
-  .eq-more { background: var(--card-lavender); transform: rotate(-2deg); position: relative; }
-  .eq-more .pill { background: var(--pill-lavender); }
-  .eq-more::after {
-    content: "soon"; position: absolute;
-    top: -10px; right: -10px;
-    background: var(--ink); color: #fff;
-    font-family: 'Inter', sans-serif; font-weight: 600;
-    font-size: 10px; letter-spacing: 0.06em;
-    padding: 5px 10px; border-radius: 999px;
-    transform: rotate(6deg);
-  }
-
-  .eq-equals-big {
-    width: 220px; height: 220px;
-    background: var(--card-mint);
-    border-radius: 26px;
-    padding: 22px;
-    display: flex; flex-direction: column;
-    transform: rotate(-2deg);
-    box-shadow:
-      0 1px 2px rgba(0,0,0,0.04),
-      0 24px 50px -18px rgba(0,0,0,0.18);
-    transition: transform 300ms cubic-bezier(0.2, 0.8, 0.3, 1);
-  }
-  .eq-equals-big:hover { transform: translateY(-4px) rotate(0deg); }
-  .eq-equals-big .pill {
-    display: inline-block; align-self: flex-start;
-    padding: 6px 14px;
-    border-radius: 999px;
-    background: var(--pill-mint);
-    font-family: 'Inter', sans-serif;
-    font-size: 11px; font-weight: 700;
+    font-size: 8px; font-weight: 500;
     letter-spacing: 0.14em; color: var(--ink);
+    margin-bottom: 10px;
   }
-  .eq-equals-big .brand-big {
+  .tc-mail     .tc-pill { background: var(--pill-peach); }
+  .tc-calendar .tc-pill { background: var(--pill-blue); }
+  .tc-github   .tc-pill { background: var(--pill-mint); }
+  .tc-slack    .tc-pill { background: var(--pill-yellow); }
+  .tc-notion   .tc-pill { background: var(--pill-lavender); }
+
+  .tc-icon {
     flex: 1; display: flex; align-items: center; justify-content: center;
   }
-  .eq-equals-big .brand-big .wm-big {
-    font-family: 'Kalam', cursive;
-    font-weight: 700; font-size: 56px;
-    color: var(--ink);
-    display: inline-flex; align-items: baseline;
-    letter-spacing: -0.02em;
-  }
-  .eq-equals-big .brand-big .wm-big .sup {
-    font-size: 0.55em; transform: translateY(-0.6em);
-    margin-left: 2px;
-  }
-  .eq-equals-big .tagline-sm {
-    text-align: center;
-    font-family: 'Inter', sans-serif;
-    font-size: 12px; color: var(--ink-muted);
+
+  /* flow arrows */
+  .tc-arrows {
+    display: flex; flex-direction: column;
+    gap: 32px; align-items: center;
+    opacity: 0.5;
+    flex-shrink: 0;
   }
 
-  .eq-op {
-    font-family: 'Kalam', cursive;
-    font-weight: 700; font-size: 54px;
-    color: var(--ink);
-    line-height: 1;
+  /* result card */
+  .tc-result {
+    width: 230px; height: 230px;
+    background: var(--card-mint);
+    border-radius: 26px; padding: 22px;
+    display: flex; flex-direction: column;
+    transform: rotate(-1.5deg);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 24px 52px -18px rgba(0,0,0,0.18);
+    transition: transform 280ms cubic-bezier(0.2,0.8,0.3,1);
+    flex-shrink: 0;
+  }
+  .tc-result:hover { transform: translateY(-5px) rotate(0deg); }
+  .tc-result .tc-pill { background: var(--pill-mint); margin-bottom: 0; }
+  .tc-result-wm {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    font-family: 'Kalam', cursive; font-weight: 700;
+    font-size: 60px; color: var(--ink);
+    letter-spacing: -0.02em; line-height: 1;
+  }
+  .tc-result-wm sup {
+    font-size: 0.52em; vertical-align: super; line-height: 0;
+  }
+  .tc-result-sub {
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px; color: var(--ink-muted);
+    letter-spacing: 0.01em;
+  }
+
+  @media (max-width: 900px) {
+    .tools-cluster { width: 300px; height: 220px; }
+    .tc { width: 110px; height: 110px; padding: 12px; }
+    .tc-mail     { left:0;    top:20px; }
+    .tc-calendar { left:94px; top:0; }
+    .tc-github   { left:12px; top:108px; }
+    .tc-slack    { left:114px; top:104px; }
+    .tc-notion   { left:202px; top:52px; }
+    .tc-result   { width: 170px; height: 170px; }
+    .tc-result-wm { font-size: 44px; }
+    .tc-arrows   { display: none; }
   }
 
   /* Hero headline */
@@ -463,7 +456,7 @@
     <li><a href="#how">how it works</a></li>
     <li><a href="#features">features</a></li>
     <li><a href="#">docs</a></li>
-    <li><a href="#">github</a></li>
+    <li><a href="https://github.com/Sushanti99/BrainSquared" target="_blank">github</a></li>
   </ul>
   <button class="cta-nav">Get started <span class="arrow">→</span></button>
 </nav>
@@ -487,52 +480,97 @@
     <span>OPEN SOURCE · BYO SUBSCRIPTION · LOCAL FIRST</span>
   </div>
 
-  <!-- THE EQUATION -->
-  <div class="equation">
-    <div class="eq-sticky eq-claude">
-      <span class="pill">BRAIN</span>
-      <div class="logo-area">
-        <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="#D97757"/><text x="22" y="30" font-family="Inter, sans-serif" font-weight="700" font-size="20" fill="#fff" text-anchor="middle">C</text></svg>
-        <div class="logo-name">Claude</div>
-        <div class="logo-sub">code · api</div>
+  <!-- TOOL CARDS VISUAL -->
+  <div class="tools-hero">
+    <div class="tools-cluster">
+
+      <!-- Gmail -->
+      <div class="tc tc-mail">
+        <span class="tc-pill">MAIL</span>
+        <div class="tc-icon">
+          <svg width="60" height="44" viewBox="0 0 60 44" fill="none">
+            <rect x="1" y="1" width="58" height="42" rx="7" stroke="#111" stroke-width="2.5" stroke-opacity="0.6"/>
+            <polyline points="1,1 30,26 59,1" stroke="#111" stroke-width="2.5" stroke-opacity="0.6" stroke-linejoin="round"/>
+          </svg>
+        </div>
       </div>
+
+      <!-- Calendar -->
+      <div class="tc tc-calendar">
+        <span class="tc-pill">CALENDAR</span>
+        <div class="tc-icon">
+          <svg width="60" height="56" viewBox="0 0 60 56" fill="none">
+            <rect x="1" y="9" width="58" height="46" rx="7" stroke="#111" stroke-width="2.5" stroke-opacity="0.6"/>
+            <line x1="1" y1="23" x2="59" y2="23" stroke="#111" stroke-width="2" stroke-opacity="0.4"/>
+            <line x1="18" y1="1" x2="18" y2="17" stroke="#111" stroke-width="2.5" stroke-opacity="0.6" stroke-linecap="round"/>
+            <line x1="42" y1="1" x2="42" y2="17" stroke="#111" stroke-width="2.5" stroke-opacity="0.6" stroke-linecap="round"/>
+            <rect x="10" y="31" width="10" height="10" rx="2" fill="#111" opacity="0.2"/>
+            <rect x="25" y="31" width="10" height="10" rx="2" fill="#111" opacity="0.2"/>
+            <rect x="40" y="31" width="10" height="10" rx="2" fill="#111" opacity="0.2"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- GitHub -->
+      <div class="tc tc-github">
+        <span class="tc-pill">GITHUB</span>
+        <div class="tc-icon">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="#111" opacity="0.65">
+            <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Slack -->
+      <div class="tc tc-slack">
+        <span class="tc-pill">SLACK</span>
+        <div class="tc-icon">
+          <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+            <line x1="12" y1="20" x2="40" y2="20" stroke="#111" stroke-width="2.5" stroke-opacity="0.55" stroke-linecap="round"/>
+            <line x1="12" y1="32" x2="40" y2="32" stroke="#111" stroke-width="2.5" stroke-opacity="0.55" stroke-linecap="round"/>
+            <line x1="20" y1="12" x2="16" y2="40" stroke="#111" stroke-width="2.5" stroke-opacity="0.55" stroke-linecap="round"/>
+            <line x1="36" y1="12" x2="32" y2="40" stroke="#111" stroke-width="2.5" stroke-opacity="0.55" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Notion -->
+      <div class="tc tc-notion">
+        <span class="tc-pill">NOTION</span>
+        <div class="tc-icon">
+          <svg width="44" height="54" viewBox="0 0 44 54" fill="none">
+            <rect x="1" y="1" width="42" height="52" rx="6" stroke="#111" stroke-width="2.5" stroke-opacity="0.55"/>
+            <line x1="9" y1="16" x2="35" y2="16" stroke="#111" stroke-width="2" stroke-opacity="0.4" stroke-linecap="round"/>
+            <line x1="9" y1="26" x2="31" y2="26" stroke="#111" stroke-width="2" stroke-opacity="0.4" stroke-linecap="round"/>
+            <line x1="9" y1="36" x2="27" y2="36" stroke="#111" stroke-width="2" stroke-opacity="0.4" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+
     </div>
 
-    <div class="eq-op">×</div>
-
-    <div class="eq-sticky eq-codex">
-      <span class="pill">BRAIN</span>
-      <div class="logo-area">
-        <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="#111"/><text x="22" y="30" font-family="Inter, sans-serif" font-weight="700" font-size="20" fill="#fff" text-anchor="middle">✦</text></svg>
-        <div class="logo-name">Codex</div>
-        <div class="logo-sub">gpt · cli</div>
-      </div>
+    <!-- arrows -->
+    <div class="tc-arrows">
+      <svg width="56" height="44" viewBox="0 0 56 44" fill="none">
+        <path d="M4,10 C20,10 36,18 52,22" stroke="#BCBCB8" stroke-width="2" stroke-linecap="round"/>
+        <path d="M52,22 L42,16 M52,22 L44,28" stroke="#BCBCB8" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <svg width="56" height="44" viewBox="0 0 56 44" fill="none">
+        <path d="M4,34 C20,34 36,26 52,22" stroke="#BCBCB8" stroke-width="2" stroke-linecap="round"/>
+        <path d="M52,22 L42,16 M52,22 L44,28" stroke="#BCBCB8" stroke-width="2" stroke-linecap="round"/>
+      </svg>
     </div>
 
-    <div class="eq-op">×</div>
-
-    <div class="eq-sticky eq-more">
-      <span class="pill">BRAIN</span>
-      <div class="logo-area">
-        <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="#e8e8e8" stroke="#bbb" stroke-dasharray="3 3"/><text x="22" y="29" font-family="Kalam, cursive" font-weight="700" font-size="22" fill="#999" text-anchor="middle">?</text></svg>
-        <div class="logo-name" style="color: #777;">Gemini</div>
-        <div class="logo-sub">& more</div>
-      </div>
-    </div>
-
-    <div class="eq-op">=</div>
-
-    <div class="eq-equals-big">
-      <span class="pill">BRAIN²</span>
-      <div class="brand-big">
-        <div class="wm-big">brain<span class="sup">2</span></div>
-      </div>
-      <div class="tagline-sm">your notebook, squared</div>
+    <!-- result -->
+    <div class="tc-result">
+      <span class="tc-pill">BRAIN²</span>
+      <div class="tc-result-wm">brain<sup>2</sup></div>
+      <div class="tc-result-sub">everything in one place</div>
     </div>
   </div>
 
-  <h1 class="hero-headline">your AI has a brain.<br>we give it a <em>notebook</em>.</h1>
-  <p class="hero-sub">brainsquared wraps your existing Claude Code or Codex subscription into a persistent vault, wired up to your mail, calendar, and tools. One place to think, track, and close loops. Nothing else needed.</p>
+  <h1 class="hero-headline">everything you use,<br>finally in one place.</h1>
+  <p class="hero-sub">brain² connects your mail, calendar, GitHub, and notes into a single local vault — powered by your existing Claude or Codex subscription. One place to think, track, and close loops. Stop switching tabs.</p>
 
   <div class="hero-cta">
     <button class="btn-primary">Start your vault <span class="arrow">→</span></button>
@@ -616,14 +654,16 @@
 <section class="footer-cta">
   <h2>close the loop.<br>keep the notebook.</h2>
   <p>brain² is open-source and local-first. You ship it, you own it.</p>
-  <button class="btn-primary">Clone the repo <span class="arrow">→</span></button>
+  <a href="https://github.com/Sushanti99/BrainSquared" target="_blank" style="text-decoration:none">
+    <button class="btn-primary">Clone the repo <span class="arrow">→</span></button>
+  </a>
 </section>
 
 <footer class="end">
   <div class="wordmark">brain<span class="sup">²</span></div>
   <ul>
     <li><a href="#">docs</a></li>
-    <li><a href="#">github</a></li>
+    <li><a href="https://github.com/Sushanti99/BrainSquared" target="_blank">github</a></li>
     <li><a href="#">twitter</a></li>
     <li><a href="#">discord</a></li>
   </ul>
