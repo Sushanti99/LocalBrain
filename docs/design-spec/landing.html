@@ -378,6 +378,65 @@
     font-size: 32px; color: var(--ink-ghost);
   }
 
+  /* ============ WAITLIST ============ */
+  .waitlist {
+    padding: 100px 48px;
+    text-align: center;
+    background: var(--card-yellow);
+    position: relative; overflow: hidden;
+  }
+  .waitlist-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    background: var(--pill-yellow); color: var(--ink);
+    padding: 5px 14px; border-radius: 999px;
+    margin-bottom: 20px;
+  }
+  .waitlist h2 {
+    font-family: 'Kalam', cursive; font-weight: 700;
+    font-size: 56px; line-height: 1.08;
+    margin: 0 0 14px; letter-spacing: -0.015em;
+  }
+  .waitlist p {
+    font-size: 18px; color: var(--ink-muted);
+    margin: 0 0 40px;
+  }
+  .waitlist-form {
+    display: flex; gap: 10px; justify-content: center;
+    flex-wrap: wrap;
+  }
+  .waitlist-form input[type="email"] {
+    font-family: 'Inter', sans-serif; font-size: 15px;
+    padding: 14px 20px; border-radius: 999px;
+    border: 1.5px solid rgba(17,17,17,0.18);
+    background: #fff; color: var(--ink);
+    outline: none; width: 300px;
+    transition: border-color 160ms;
+  }
+  .waitlist-form input[type="email"]:focus { border-color: var(--ink); }
+  .waitlist-form input[type="email"]::placeholder { color: var(--ink-faint); }
+  .waitlist-form button {
+    font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
+    padding: 14px 28px; border-radius: 999px;
+    background: var(--ink); color: #fff;
+    border: none; cursor: pointer;
+    transition: transform 160ms, opacity 160ms;
+  }
+  .waitlist-form button:hover { transform: translateY(-2px); opacity: 0.88; }
+  .waitlist-note {
+    margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-muted);
+    letter-spacing: 0.04em;
+  }
+  .waitlist-scrib {
+    position: absolute;
+    font-family: 'Caveat', cursive;
+    color: rgba(17,17,17,0.12); pointer-events: none;
+  }
+
   /* ============ FOOTER CTA ============ */
   .footer-cta {
     padding: 100px 48px 140px;
@@ -649,6 +708,20 @@
       <p>Gmail, Calendar, GitHub, Slack, Linear, Notion. Each connector is one OAuth click.</p>
     </div>
   </div>
+</section>
+
+<!-- WAITLIST -->
+<section class="waitlist">
+  <div class="waitlist-scrib" style="top:14%;left:8%;font-size:30px;transform:rotate(-5deg)">coming soon ✦</div>
+  <div class="waitlist-scrib" style="bottom:16%;right:9%;font-size:26px;transform:rotate(4deg)">be first →</div>
+  <div class="waitlist-badge">premium · coming soon</div>
+  <h2>brain², but supercharged.</h2>
+  <p>sync across devices, team vaults, and deeper integrations. <br>join the wishlist and be first to know.</p>
+  <form class="waitlist-form" action="https://formspree.io/sushanti@berkeley.edu" method="POST">
+    <input type="email" name="email" placeholder="your@email.com" required>
+    <button type="submit">join wishlist</button>
+  </form>
+  <div class="waitlist-note">no spam · unsubscribe anytime</div>
 </section>
 
 <!-- FOOTER CTA -->
