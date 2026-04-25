@@ -1,58 +1,97 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500" width="1500" height="500">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 60 1400 375" width="1500" height="500">
   <style><![CDATA[
-    @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Caveat:wght@400;600&family=Inter:wght@500;700&display=swap');
-    .wm { font-family: 'Kalam', cursive; font-weight: 700; }
-    .eq { font-family: 'Kalam', cursive; font-weight: 700; }
-    .scrib { font-family: 'Caveat', cursive; font-weight: 400; }
-    .ui { font-family: 'Inter', sans-serif; font-weight: 700; }
-    .pill-text { font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: 0.1em; }
+    @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Caveat:wght@400;600&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    .wm  { font-family: 'Kalam', cursive; font-weight: 700; }
+    .scr { font-family: 'Caveat', cursive; font-weight: 400; }
+    .ui  { font-family: 'Inter', sans-serif; }
+    .mono{ font-family: 'JetBrains Mono', monospace; }
   ]]></style>
 
+  <!-- paper background -->
   <rect width="1500" height="500" fill="#FAFAF7"/>
 
-  <text x="1150" y="90" class="scrib" font-size="28" fill="#D0D0D0" transform="rotate(-4 1150 90)">a second brain</text>
-  <text x="90" y="440" class="scrib" font-size="26" fill="#D0D0D0" transform="rotate(3 90 440)">on your first</text>
-  <text x="1200" y="420" class="scrib" font-size="22" fill="#D5D5D5" transform="rotate(-2 1200 420)">notes · tasks · mail</text>
+  <!-- subtle grid texture lines (very faint) -->
+  <line x1="0" y1="100" x2="1500" y2="100" stroke="#111" stroke-opacity="0.03" stroke-width="1"/>
+  <line x1="0" y1="200" x2="1500" y2="200" stroke="#111" stroke-opacity="0.03" stroke-width="1"/>
+  <line x1="0" y1="300" x2="1500" y2="300" stroke="#111" stroke-opacity="0.03" stroke-width="1"/>
+  <line x1="0" y1="400" x2="1500" y2="400" stroke="#111" stroke-opacity="0.03" stroke-width="1"/>
 
-  <path d="M 260,260 Q 340,240 410,250" fill="none" stroke="#CCC" stroke-width="2" stroke-linecap="round"/>
-  <path d="M 410,250 L 400,242 M 410,250 L 402,258" fill="none" stroke="#CCC" stroke-width="2" stroke-linecap="round"/>
 
-  <path d="M 1080,260 Q 1160,240 1230,250" fill="none" stroke="#CCC" stroke-width="2" stroke-linecap="round"/>
-  <path d="M 1230,250 L 1220,242 M 1230,250 L 1222,258" fill="none" stroke="#CCC" stroke-width="2" stroke-linecap="round"/>
+  <!-- ─── LEFT: scattered tool sticky cards (contained in left 520px) ─── -->
 
-  <g transform="translate(120, 160) rotate(-3)">
-    <rect x="0" y="0" width="150" height="150" rx="18" ry="18" fill="#FAE0CE"/>
-    <rect x="18" y="18" width="60" height="22" rx="11" ry="11" fill="#F3C89E"/>
-    <text x="48" y="33" class="pill-text" font-size="10" fill="#111" text-anchor="middle">BRAIN</text>
-    <text x="75" y="90" class="ui" font-size="22" fill="#111" text-anchor="middle">Claude</text>
-    <text x="75" y="120" class="ui" font-size="13" fill="#333" text-anchor="middle">Code + API</text>
+  <!-- Gmail card -->
+  <g transform="translate(50, 105) rotate(-4)">
+    <rect width="155" height="155" rx="18" fill="#FAE0CE" opacity="0.95"/>
+    <rect x="14" y="14" width="52" height="18" rx="9" fill="#F3C89E"/>
+    <text x="40" y="27" class="mono" font-size="8" fill="#111" text-anchor="middle" letter-spacing="0.12em">MAIL</text>
+    <rect x="38" y="58" width="79" height="54" rx="7" fill="none" stroke="#111" stroke-width="2" stroke-opacity="0.55"/>
+    <polyline points="38,58 77,90 117,58" fill="none" stroke="#111" stroke-width="2" stroke-opacity="0.55" stroke-linejoin="round"/>
   </g>
 
-  <text x="340" y="260" class="eq" font-size="64" fill="#111" text-anchor="middle">×</text>
-
-  <g transform="translate(400, 160) rotate(2)">
-    <rect x="0" y="0" width="150" height="150" rx="18" ry="18" fill="#D4E8F5"/>
-    <rect x="18" y="18" width="60" height="22" rx="11" ry="11" fill="#A8D0E8"/>
-    <text x="48" y="33" class="pill-text" font-size="10" fill="#111" text-anchor="middle">BRAIN</text>
-    <text x="75" y="90" class="ui" font-size="22" fill="#111" text-anchor="middle">Codex</text>
-    <text x="75" y="120" class="ui" font-size="13" fill="#333" text-anchor="middle">GPT + CLI</text>
+  <!-- Calendar card -->
+  <g transform="translate(225, 78) rotate(2.5)">
+    <rect width="148" height="148" rx="18" fill="#D4E8F5" opacity="0.92"/>
+    <rect x="13" y="13" width="66" height="18" rx="9" fill="#A8D0E8"/>
+    <text x="46" y="26" class="mono" font-size="8" fill="#111" text-anchor="middle" letter-spacing="0.12em">CALENDAR</text>
+    <rect x="24" y="52" width="100" height="72" rx="7" fill="none" stroke="#111" stroke-width="2" stroke-opacity="0.55"/>
+    <line x1="24" y1="68" x2="124" y2="68" stroke="#111" stroke-width="1.5" stroke-opacity="0.35"/>
+    <line x1="46" y1="44" x2="46" y2="60" stroke="#111" stroke-width="2" stroke-opacity="0.55" stroke-linecap="round"/>
+    <line x1="102" y1="44" x2="102" y2="60" stroke="#111" stroke-width="2" stroke-opacity="0.55" stroke-linecap="round"/>
+    <rect x="38" y="78" width="12" height="12" rx="3" fill="#111" opacity="0.18"/>
+    <rect x="62" y="78" width="12" height="12" rx="3" fill="#111" opacity="0.18"/>
+    <rect x="86" y="78" width="12" height="12" rx="3" fill="#111" opacity="0.18"/>
+    <rect x="38" y="98" width="12" height="12" rx="3" fill="#111" opacity="0.18"/>
+    <rect x="62" y="98" width="12" height="12" rx="3" fill="#111" opacity="0.18"/>
   </g>
 
-  <text x="620" y="260" class="eq" font-size="64" fill="#111" text-anchor="middle">=</text>
-
-  <g transform="translate(680, 120) rotate(-2)">
-    <rect x="0" y="0" width="220" height="220" rx="26" ry="26" fill="#D4EED9"/>
-    <rect x="22" y="22" width="80" height="26" rx="13" ry="13" fill="#A8D9B2"/>
-    <text x="62" y="40" class="pill-text" font-size="12" fill="#111" text-anchor="middle">BRAIN²</text>
-    <text x="110" y="140" class="wm" font-size="72" fill="#111" text-anchor="middle" letter-spacing="-1">brain</text>
-    <text x="180" y="115" class="wm" font-size="36" fill="#111" text-anchor="middle">2</text>
-    <text x="110" y="190" class="ui" font-size="13" fill="#333" text-anchor="middle">your notebook, squared</text>
+  <!-- GitHub card -->
+  <g transform="translate(85, 278) rotate(3)">
+    <rect width="148" height="148" rx="18" fill="#D4EED9" opacity="0.92"/>
+    <rect x="13" y="13" width="58" height="18" rx="9" fill="#A8D9B2"/>
+    <text x="42" y="26" class="mono" font-size="8" fill="#111" text-anchor="middle" letter-spacing="0.12em">GITHUB</text>
+    <g transform="translate(44, 48) scale(2.5)">
+      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" fill="#111" opacity="0.55"/>
+    </g>
   </g>
 
-  <text x="960" y="250" class="wm" font-size="38" fill="#111">brainsquared</text>
-  <rect x="960" y="270" width="340" height="2" fill="#111" opacity="0.1"/>
-  <text x="960" y="310" class="ui" font-size="16" fill="#666">your AI subscription,</text>
-  <text x="960" y="335" class="ui" font-size="16" fill="#666">wired into your vault,</text>
-  <text x="960" y="360" class="ui" font-size="16" fill="#666">your mail, your calendar,</text>
-  <text x="960" y="385" class="ui" font-size="16" fill="#666">your whole day.</text>
+  <!-- Slack card -->
+  <g transform="translate(255, 265) rotate(-2)">
+    <rect width="148" height="148" rx="18" fill="#FFF6CC" opacity="0.95"/>
+    <rect x="13" y="13" width="50" height="18" rx="9" fill="#F0D96A"/>
+    <text x="38" y="26" class="mono" font-size="8" fill="#111" text-anchor="middle" letter-spacing="0.12em">SLACK</text>
+    <line x1="40" y1="64" x2="108" y2="64" stroke="#111" stroke-width="2" stroke-opacity="0.45" stroke-linecap="round"/>
+    <line x1="34" y1="80" x2="114" y2="80" stroke="#111" stroke-width="2" stroke-opacity="0.45" stroke-linecap="round"/>
+    <line x1="54" y1="56" x2="48" y2="88" stroke="#111" stroke-width="2" stroke-opacity="0.45" stroke-linecap="round"/>
+    <line x1="84" y1="56" x2="78" y2="88" stroke="#111" stroke-width="2" stroke-opacity="0.45" stroke-linecap="round"/>
+  </g>
+
+  <!-- Notion card -->
+  <g transform="translate(400, 160) rotate(1.5)">
+    <rect width="138" height="138" rx="16" fill="#E8D4EE" opacity="0.88"/>
+    <rect x="12" y="12" width="56" height="17" rx="8" fill="#D4AADF"/>
+    <text x="40" y="24" class="mono" font-size="8" fill="#111" text-anchor="middle" letter-spacing="0.12em">NOTION</text>
+    <rect x="30" y="46" width="78" height="64" rx="6" fill="none" stroke="#111" stroke-width="2" stroke-opacity="0.45"/>
+    <line x1="40" y1="62" x2="98" y2="62" stroke="#111" stroke-width="1.5" stroke-opacity="0.35" stroke-linecap="round"/>
+    <line x1="40" y1="76" x2="90" y2="76" stroke="#111" stroke-width="1.5" stroke-opacity="0.35" stroke-linecap="round"/>
+    <line x1="40" y1="90" x2="82" y2="90" stroke="#111" stroke-width="1.5" stroke-opacity="0.35" stroke-linecap="round"/>
+  </g>
+
+  <!-- flow arrows — curving from card cluster into tagline -->
+  <!-- upper arrow: top cards → "everything you use," -->
+  <path d="M 558,168 C 600,168 630,192 664,200" fill="none" stroke="#BEBEBA" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 664,200 L 653,193 M 664,200 L 655,208" fill="none" stroke="#BEBEBA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- lower arrow: bottom cards → "stop switching tabs." -->
+  <path d="M 554,338 C 596,338 626,326 664,322" fill="none" stroke="#BEBEBA" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 664,322 L 653,315 M 664,322 L 655,329" fill="none" stroke="#BEBEBA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- ─── RIGHT: tagline in Kalam (same font as brain²) ─── -->
+
+  <text x="680" y="195" class="wm" font-size="62" fill="#111111">everything you use,</text>
+  <text x="680" y="272" class="wm" font-size="62" fill="#111111">finally in one place.</text>
+  <text x="680" y="344" class="wm" font-size="44" fill="#AAAAAA">stop switching tabs.</text>
+
+  <!-- green dot + local label -->
+  <circle cx="680" cy="400" r="5" fill="#7BC47F"/>
+  <text x="694" y="405" class="mono" font-size="12" fill="#999" letter-spacing="0.06em">local · private · yours</text>
+
 </svg>
