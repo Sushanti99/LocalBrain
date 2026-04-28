@@ -745,12 +745,9 @@
   <div>© 2026 · built for people who take notes</div>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const supabase = window.supabase.createClient(
-    'https://mrtlxmywvtqhvmpgcvsp.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ydGx4bXl3dnRxaHZtcGdjdnNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTk4MDksImV4cCI6MjA5Mjg3NTgwOX0.DlUbR8xRMpXW5eoJmwtlz6UC3HYGPC1fl6-Ov-95PLw'
-  );
+  const SUPABASE_URL = 'https://mrtlxmywvtqhvmpgcvsp.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ydGx4bXl3dnRxaHZtcGdjdnNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTk4MDksImV4cCI6MjA5Mjg3NTgwOX0.DlUbR8xRMpXW5eoJmwtlz6UC3HYGPC1fl6-Ov-95PLw';
 
   document.getElementById('waitlist-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -762,20 +759,33 @@
     btn.disabled = true;
     btn.textContent = 'joining...';
 
-    const { error } = await supabase.from('waitlist').insert({ email });
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({ email })
+      });
 
-    if (error) {
-      if (error.code === '23505') {
+      if (response.ok) {
+        status.textContent = "you're in! we'll be in touch.";
+        btn.textContent = 'joined ✓';
+        emailInput.value = '';
+      } else if (response.status === 409) {
         status.textContent = "you're already on the list!";
+        btn.disabled = false;
+        btn.textContent = 'join wishlist';
       } else {
-        status.textContent = 'something went wrong, try again';
+        throw new Error('Request failed');
       }
+    } catch (err) {
+      status.textContent = 'something went wrong, try again';
       btn.disabled = false;
       btn.textContent = 'join wishlist';
-    } else {
-      status.textContent = "you're in! we'll be in touch.";
-      btn.textContent = 'joined ✓';
-      emailInput.value = '';
     }
   });
 </script>
