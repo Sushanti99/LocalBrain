@@ -8,6 +8,7 @@ from typing import Any
 
 import yaml
 
+from brain.agents import SUPPORTED_AGENTS
 from brain.models import (
     AgentCommandConfig,
     AppConfig,
@@ -17,8 +18,6 @@ from brain.models import (
     VaultConfig,
 )
 from brain.utils import ensure_absolute_path
-
-SUPPORTED_AGENTS = {"claude-code", "codex"}
 
 
 def _build_default_config(vault_path: Path, agent: str = "claude-code") -> dict[str, Any]:

@@ -8,6 +8,13 @@ from brain.models import AppConfig, DailyContext, SessionState, VaultPaths
 from brain.vault import list_core_notes, read_daily_note
 
 
+def _format_history_turn(turn) -> str:
+    speaker = turn.role.upper()
+    if turn.agent_name:
+        speaker = f"{speaker} ({turn.agent_name})"
+    return f"{speaker}: {turn.content}"
+
+
 def load_canonical_prompt(vault_paths: VaultPaths) -> str:
     prompt_path = vault_paths.system / "CLAUDE.md"
     if not prompt_path.exists():
@@ -60,7 +67,7 @@ def build_chat_prompt(
     sections.append("## Recent Session History")
     if history:
         for turn in history:
-            sections.append(f"{turn.role.upper()}: {turn.content}")
+            sections.append(_format_history_turn(turn))
     else:
         sections.append("No prior turns in this session.")
 

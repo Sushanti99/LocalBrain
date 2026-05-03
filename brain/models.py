@@ -115,6 +115,7 @@ class Turn:
     role: TurnRole
     content: str
     created_at: datetime
+    agent_name: AgentName | None = None
 
 
 @dataclass(slots=True)

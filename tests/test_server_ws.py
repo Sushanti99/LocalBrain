@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 
 import pytest
@@ -16,15 +17,20 @@ from brain.session import SessionManager
 
 
 class FakeBackend:
+    def __init__(self, agent_name="claude-code", prompts=None):
+        self.agent_name = agent_name
+        self.prompts = prompts if prompts is not None else []
+
     def validate_installation(self):
         return BackendValidationResult(
             installed=True,
-            command="fake",
+            command=f"fake-{self.agent_name}",
             resolved_path="/usr/bin/fake",
             version="fake 1.0",
         )
 
     async def stream(self, prompt, cwd, env):
+        self.prompts.append((self.agent_name, prompt))
         yield type("Event", (), {"type": "chunk", "content": "hello", "raw": None})()
         yield type("Event", (), {"type": "chunk", "content": " world", "raw": None})()
         yield type("Event", (), {"type": "done", "content": None, "raw": None})()
@@ -63,16 +69,24 @@ def test_status_route_and_single_websocket_enforcement(tmp_path, monkeypatch):
     env_cfg = load_env_config()
     runtime = AppRuntime(app_cfg=app_cfg, env_cfg=env_cfg, session_manager=SessionManager(app_cfg.agent))
     app = create_app(runtime)
-    monkeypatch.setattr("brain.server.get_backend", lambda cfg: FakeBackend())
+    monkeypatch.setattr("brain.server.get_backend", lambda cfg, agent_name=None: FakeBackend(agent_name or cfg.agent))
 
     client = TestClient(app)
     response = client.get("/api/status")
     assert response.status_code == 200
-    assert response.json()["agent"] == "claude-code"
+    payload = response.json()
+    assert payload["agent"] == "claude-code"
+    assert payload["configured_agent"] == "claude-code"
+    assert payload["active_agent"] == "claude-code"
+    assert [option["id"] for option in payload["available_agents"]] == ["claude-code", "codex"]
+    assert all(option["installed"] is True for option in payload["available_agents"])
 
     with client.websocket_connect("/ws") as ws1:
         session_payload = ws1.receive_json()
         assert session_payload["type"] == "session"
+        assert session_payload["agent"] == "claude-code"
+        assert [option["id"] for option in session_payload["available_agents"]] == ["claude-code", "codex"]
+        assert all(option["installed"] is True for option in session_payload["available_agents"])
 
         with client.websocket_connect("/ws") as ws2:
             error_payload = ws2.receive_json()
@@ -80,12 +94,46 @@ def test_status_route_and_single_websocket_enforcement(tmp_path, monkeypatch):
             assert "already connected" in error_payload["message"]
 
 
+def test_status_and_session_mark_uninstalled_agents(tmp_path, monkeypatch):
+    app_cfg = default_app_config(tmp_path / "vault")
+    env_cfg = load_env_config()
+    runtime = AppRuntime(app_cfg=app_cfg, env_cfg=env_cfg, session_manager=SessionManager(app_cfg.agent))
+    app = create_app(runtime)
+
+    def fake_backend(cfg, agent_name=None):
+        selected = agent_name or cfg.agent
+        backend = FakeBackend(selected)
+        if selected == "codex":
+            backend.validate_installation = lambda: BackendValidationResult(
+                installed=False,
+                command="fake-codex",
+                resolved_path=None,
+                version=None,
+                error="missing codex",
+            )
+        return backend
+
+    monkeypatch.setattr("brain.server.get_backend", fake_backend)
+
+    client = TestClient(app)
+    response = client.get("/api/status")
+    assert response.status_code == 200
+    payload = response.json()
+    assert [option["id"] for option in payload["available_agents"]] == ["claude-code", "codex"]
+    assert [option["installed"] for option in payload["available_agents"]] == [True, False]
+
+    with client.websocket_connect("/ws") as ws:
+        session_payload = ws.receive_json()
+        assert [option["id"] for option in session_payload["available_agents"]] == ["claude-code", "codex"]
+        assert [option["installed"] for option in session_payload["available_agents"]] == [True, False]
+
+
 def test_websocket_message_streams_response(tmp_path, monkeypatch):
     app_cfg = default_app_config(tmp_path / "vault")
     env_cfg = load_env_config()
     runtime = AppRuntime(app_cfg=app_cfg, env_cfg=env_cfg, session_manager=SessionManager(app_cfg.agent))
     app = create_app(runtime)
-    monkeypatch.setattr("brain.server.get_backend", lambda cfg: FakeBackend())
+    monkeypatch.setattr("brain.server.get_backend", lambda cfg, agent_name=None: FakeBackend(agent_name or cfg.agent))
 
     client = TestClient(app)
     with client.websocket_connect("/ws") as ws:
@@ -107,6 +155,92 @@ def test_websocket_message_streams_response(tmp_path, monkeypatch):
         assert "thinking" in statuses
         assert "".join(chunks) == "hello world"
         assert done["content"] == "hello world"
+        assert done["agent"] == "claude-code"
+
+
+def test_websocket_switch_agent_updates_runtime_and_uses_new_backend(tmp_path, monkeypatch):
+    app_cfg = default_app_config(tmp_path / "vault")
+    env_cfg = load_env_config()
+    runtime = AppRuntime(app_cfg=app_cfg, env_cfg=env_cfg, session_manager=SessionManager(app_cfg.agent))
+    app = create_app(runtime)
+    prompts = []
+    monkeypatch.setattr("brain.server.get_backend", lambda cfg, agent_name=None: FakeBackend(agent_name or cfg.agent, prompts))
+    monkeypatch.setattr("brain.server.build_chat_prompt", lambda *args, **kwargs: "claude prompt")
+    monkeypatch.setattr("brain.server.build_codex_prompt", lambda *args, **kwargs: "codex prompt")
+    monkeypatch.setattr("brain.server.mcp_config.sync_from_env", lambda agent: None)
+
+    client = TestClient(app)
+    with client.websocket_connect("/ws") as ws:
+        session_payload = ws.receive_json()
+        original_session_id = session_payload["session_id"]
+        ws.send_json({"type": "switch_agent", "agent": "codex"})
+        switched_payload = ws.receive_json()
+
+        assert switched_payload["type"] == "session"
+        assert switched_payload["session_id"] == original_session_id
+        assert switched_payload["agent"] == "codex"
+        assert runtime.active_agent == "codex"
+
+        ws.send_json({"type": "message", "content": "Hello after switch"})
+
+        done = None
+        for _ in range(4):
+            payload = ws.receive_json()
+            if payload["type"] == "done":
+                done = payload
+
+        assert prompts[0] == ("codex", "codex prompt")
+        assert done["agent"] == "codex"
+
+
+def test_websocket_switch_agent_rejected_while_running(tmp_path, monkeypatch):
+    app_cfg = default_app_config(tmp_path / "vault")
+    env_cfg = load_env_config()
+    runtime = AppRuntime(app_cfg=app_cfg, env_cfg=env_cfg, session_manager=SessionManager(app_cfg.agent))
+    app = create_app(runtime)
+    monkeypatch.setattr("brain.server.get_backend", lambda cfg, agent_name=None: FakeBackend(agent_name or cfg.agent))
+
+    client = TestClient(app)
+    with client.websocket_connect("/ws") as ws:
+        ws.receive_json()
+        runtime.session_manager.get_or_create_session().running = True
+        ws.send_json({"type": "switch_agent", "agent": "codex"})
+        payload = ws.receive_json()
+
+        assert payload["type"] == "error"
+        assert runtime.active_agent == "claude-code"
+
+
+def test_websocket_switch_agent_rejected_when_backend_missing(tmp_path, monkeypatch):
+    app_cfg = default_app_config(tmp_path / "vault")
+    env_cfg = load_env_config()
+    runtime = AppRuntime(app_cfg=app_cfg, env_cfg=env_cfg, session_manager=SessionManager(app_cfg.agent))
+    app = create_app(runtime)
+
+    def fake_backend(cfg, agent_name=None):
+        selected = agent_name or cfg.agent
+        backend = FakeBackend(selected)
+        if selected == "codex":
+            backend.validate_installation = lambda: BackendValidationResult(
+                installed=False,
+                command="fake-codex",
+                resolved_path=None,
+                version=None,
+                error="missing codex",
+            )
+        return backend
+
+    monkeypatch.setattr("brain.server.get_backend", fake_backend)
+
+    client = TestClient(app)
+    with client.websocket_connect("/ws") as ws:
+        ws.receive_json()
+        ws.send_json({"type": "switch_agent", "agent": "codex"})
+        payload = ws.receive_json()
+
+        assert payload["type"] == "error"
+        assert "not installed" in payload["message"]
+        assert runtime.active_agent == "claude-code"
 
 
 def test_get_daily_route_returns_today_note(tmp_path, monkeypatch):
@@ -118,7 +252,7 @@ def test_get_daily_route_returns_today_note(tmp_path, monkeypatch):
 
     runtime = AppRuntime(app_cfg=app_cfg, env_cfg=env_cfg, session_manager=SessionManager(app_cfg.agent))
     app = create_app(runtime)
-    monkeypatch.setattr("brain.server.get_backend", lambda cfg: FakeBackend())
+    monkeypatch.setattr("brain.server.get_backend", lambda cfg, agent_name=None: FakeBackend(agent_name or cfg.agent))
     monkeypatch.setattr("brain.server.date", _fake_server_date("2026-04-12"))
 
     client = TestClient(app)
@@ -138,7 +272,7 @@ def test_get_daily_route_returns_missing_yesterday_state(tmp_path, monkeypatch):
     env_cfg = load_env_config()
     runtime = AppRuntime(app_cfg=app_cfg, env_cfg=env_cfg, session_manager=SessionManager(app_cfg.agent))
     app = create_app(runtime)
-    monkeypatch.setattr("brain.server.get_backend", lambda cfg: FakeBackend())
+    monkeypatch.setattr("brain.server.get_backend", lambda cfg, agent_name=None: FakeBackend(agent_name or cfg.agent))
     monkeypatch.setattr("brain.server.date", _fake_server_date("2026-04-12"))
 
     client = TestClient(app)
@@ -158,7 +292,7 @@ def test_get_daily_route_rejects_unsupported_offsets(tmp_path, monkeypatch):
     env_cfg = load_env_config()
     runtime = AppRuntime(app_cfg=app_cfg, env_cfg=env_cfg, session_manager=SessionManager(app_cfg.agent))
     app = create_app(runtime)
-    monkeypatch.setattr("brain.server.get_backend", lambda cfg: FakeBackend())
+    monkeypatch.setattr("brain.server.get_backend", lambda cfg, agent_name=None: FakeBackend(agent_name or cfg.agent))
 
     client = TestClient(app)
     response = client.get("/api/daily?offset=1")
@@ -168,16 +302,22 @@ def test_get_daily_route_rejects_unsupported_offsets(tmp_path, monkeypatch):
 
 
 def test_integrations_status_uses_agent_specific_mcp_config(tmp_path, monkeypatch):
-    app_cfg = default_app_config(tmp_path / "vault", "codex")
+    app_cfg = default_app_config(tmp_path / "vault")
     env_cfg = load_env_config()
     runtime = AppRuntime(app_cfg=app_cfg, env_cfg=env_cfg, session_manager=SessionManager(app_cfg.agent))
     app = create_app(runtime)
+    calls = []
 
-    monkeypatch.setattr(mcp_config, "CLAUDE_SETTINGS", tmp_path / "claude-settings.json")
-    monkeypatch.setattr(mcp_config, "CODEX_CONFIG", tmp_path / "codex-config.toml")
-    for key in ("GITHUB_TOKEN", "SLACK_BOT_TOKEN", "SLACK_TEAM_ID", "NOTION_API_KEY"):
-        monkeypatch.delenv(key, raising=False)
-    monkeypatch.setenv("LINEAR_API_KEY", "lin_api_status")
+    async def switch_runtime_agent():
+        await runtime.session_manager.switch_agent("codex")
+
+    asyncio.run(switch_runtime_agent())
+    monkeypatch.setattr(mcp_config, "sync_from_env", lambda agent, environ=None: calls.append(("sync", agent)))
+    monkeypatch.setattr(
+        mcp_config,
+        "connected_integrations",
+        lambda agent=None: calls.append(("connected", agent)) or {"github": False, "slack": False, "linear": True},
+    )
 
     client = TestClient(app)
     response = client.get("/api/integrations/status")
@@ -187,6 +327,7 @@ def test_integrations_status_uses_agent_specific_mcp_config(tmp_path, monkeypatc
     assert payload["linear"] is True
     assert payload["github"] is False
     assert payload["slack"] is False
+    assert calls == [("sync", "codex"), ("connected", "codex")]
 
 
 def test_resolve_server_port_uses_next_available_port(monkeypatch):

@@ -134,16 +134,158 @@
       margin-left: 2px;
     }
     .session-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
       font-family: 'JetBrains Mono', monospace;
       font-size: 11px;
       color: var(--ink-muted);
       padding-left: 14px;
       border-left: 1px solid var(--rule);
     }
-    .session-meta .agent {
+    .agent-switcher {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .session-meta .agent-label {
+      color: var(--ink-muted);
+    }
+    .session-meta .agent-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: var(--paper-sunken);
+      border: 1px solid var(--rule);
+      border-radius: 999px;
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 500;
+      padding: 4px 24px 4px 10px;
+      transition: border-color 180ms, opacity 180ms;
+    }
+    .session-meta .agent-select:hover {
+      border-color: var(--accent);
+    }
+    .session-meta .agent-select:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .session-meta .agent-select-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .session-meta .agent-select-wrap::after {
+      content: "▾";
+      color: var(--ink-muted);
+      font-size: 10px;
+      pointer-events: none;
+      position: absolute;
+      right: 10px;
+    }
+    .session-meta .session-divider {
+      color: var(--ink-muted);
+    }
+    .session-meta .session-id {
       color: var(--ink);
       font-weight: 500;
     }
+    .agent-help {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid var(--rule);
+      background: transparent;
+      color: var(--ink-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      transition: border-color 180ms, color 180ms;
+    }
+    .agent-help:hover {
+      color: var(--ink);
+      border-color: var(--ink-muted);
+    }
+    .agent-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(20, 16, 12, 0.42);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 30;
+    }
+    .agent-modal.open { display: flex; }
+    .agent-modal-card {
+      width: min(540px, 100%);
+      background: var(--paper-raised);
+      border: 1px solid var(--rule);
+      border-radius: 28px;
+      box-shadow: 0 18px 60px rgba(44, 30, 18, 0.18);
+      padding: 26px 24px 22px;
+    }
+    .agent-modal-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin-bottom: 10px;
+    }
+    .agent-modal-card h3 {
+      margin: 0 0 10px;
+      font-family: 'Kalam', cursive;
+      font-size: 28px;
+      line-height: 1.1;
+      color: var(--ink);
+    }
+    .agent-modal-card p {
+      margin: 0 0 14px;
+      color: var(--ink-muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .agent-modal-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--ink-muted);
+      background: var(--paper-sunken);
+      border: 1px solid var(--rule);
+      border-radius: 16px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      white-space: pre-wrap;
+    }
+    .agent-modal-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .agent-modal-btn {
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--rule);
+      background: transparent;
+      color: var(--ink);
+    }
+    .agent-modal-btn.primary {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: var(--paper);
+    }
+    .agent-modal-btn:hover { transform: translateY(-1px); }
 
     /* ============ TABS ============ */
     .tabs {
@@ -1296,7 +1438,8 @@
     @media (max-width: 720px) {
       .app { padding: 12px 16px; }
       .frame { flex-wrap: wrap; gap: 12px; padding: 14px 18px; }
-      .session-meta { display: none; }
+      .brand-wrap { width: 100%; flex-wrap: wrap; }
+      .session-meta { width: 100%; padding-left: 0; border-left: none; }
       .top-right { order: 3; width: 100%; justify-content: space-between; }
       .tabs { order: 2; }
       .page-title { font-size: 36px; }
@@ -1323,7 +1466,17 @@
     <div class="brand-wrap">
       <div class="wordmark">brain<span class="sup">²</span></div>
       <div class="session-meta">
-        <span class="agent" id="agent">agent: unknown</span> · <span id="session">session: disconnected</span>
+        <label class="agent-switcher" for="agentSelect">
+          <span class="agent-label">agent:</span>
+          <span class="agent-select-wrap">
+            <select class="agent-select" id="agentSelect" aria-label="Choose agent" disabled>
+              <option>Loading…</option>
+            </select>
+          </span>
+        </label>
+        <button class="agent-help" id="agentHelpBtn" type="button" aria-label="Agent setup help">?</button>
+        <span class="session-divider">·</span>
+        <span class="session-id" id="session">session: disconnected</span>
       </div>
     </div>
     <nav class="tabs">
@@ -1402,6 +1555,19 @@
 
   </main>
 
+  <div class="agent-modal" id="agentModal" aria-hidden="true">
+    <div class="agent-modal-card">
+      <div class="agent-modal-eyebrow" id="agentModalEyebrow">Agent Setup</div>
+      <h3 id="agentModalTitle">Install an agent runtime</h3>
+      <p id="agentModalBody">brain² can switch to other supported agents once they are installed and authenticated on this machine.</p>
+      <div class="agent-modal-meta" id="agentModalMeta"></div>
+      <div class="agent-modal-actions">
+        <button class="agent-modal-btn" id="agentModalClose" type="button">Close</button>
+        <button class="agent-modal-btn primary" id="agentModalRefresh" type="button">Refresh availability</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ INTEGRATIONS VIEW ============ -->
   <div class="integrations-view" id="intView">
     <div class="page-header">
@@ -1461,8 +1627,17 @@
   const statusEl = document.getElementById("status");
   const statusDot = document.getElementById("statusDot");
   const sessionEl = document.getElementById("session");
-  const agentEl = document.getElementById("agent");
+  const agentSelect = document.getElementById("agentSelect");
+  const agentHelpBtn = document.getElementById("agentHelpBtn");
+  const agentModal = document.getElementById("agentModal");
+  const agentModalEyebrow = document.getElementById("agentModalEyebrow");
+  const agentModalTitle = document.getElementById("agentModalTitle");
+  const agentModalBody = document.getElementById("agentModalBody");
+  const agentModalMeta = document.getElementById("agentModalMeta");
+  const agentModalClose = document.getElementById("agentModalClose");
+  const agentModalRefresh = document.getElementById("agentModalRefresh");
   let currentAgent = "unknown";
+  let availableAgents = [];
   const inputEl = document.getElementById("input");
   const sendBtn = document.getElementById("sendBtn");
   const dailyBtn = document.getElementById("dailyBtn");
@@ -1663,6 +1838,92 @@
   let dailyOffset = 0;
   let currentDailyNote = null;
 
+  function findAgentOption(agentId) {
+    return availableAgents.find(option => option.id === agentId) || null;
+  }
+
+  function agentLabel(agentId) {
+    return findAgentOption(agentId)?.label || agentId || "unknown";
+  }
+
+  function assistantLabel(agentId) {
+    return `agent · ${agentLabel(agentId)}`;
+  }
+
+  function commandForAgent(agentId) {
+    return agentId === "codex" ? "@openai/codex" : "@anthropic-ai/claude-code";
+  }
+
+  function installCommand(agentId) {
+    return `npm install -g ${commandForAgent(agentId)}`;
+  }
+
+  function authCommand(agentId) {
+    return agentId === "codex" ? "codex auth" : "claude setup-token";
+  }
+
+  async function refreshAgentAvailability() {
+    try {
+      const response = await fetch("/api/status");
+      if (!response.ok) return;
+      const payload = await response.json();
+      availableAgents = Array.isArray(payload.available_agents) ? payload.available_agents : availableAgents;
+      currentAgent = payload.active_agent || payload.agent || currentAgent;
+      renderAgentOptions(currentAgent);
+      syncAgentSwitcherState();
+    } catch {}
+  }
+
+  function openAgentModal(agentId) {
+    const option = findAgentOption(agentId);
+    const label = option?.label || "This agent";
+    const installHint = installCommand(agentId);
+    const authHint = authCommand(agentId);
+    const command = option?.command || (agentId === "codex" ? "codex" : "claude");
+    const error = option?.error ? `Status: ${option.error}` : "Status: runtime not detected on PATH";
+    agentModalEyebrow.textContent = option?.installed ? "Agent Ready" : "Agent Setup";
+    agentModalTitle.textContent = option?.installed ? `${label} is installed` : `${label} is not installed yet`;
+    agentModalBody.textContent = option?.installed
+      ? `brain² can already use ${label} on this machine. If switching still looks wrong, refresh availability after finishing any CLI auth setup.`
+      : `brain² supports ${label}, but the runtime is not available on this machine yet. Install it, complete its auth step, then refresh availability here.`;
+    agentModalMeta.textContent = [
+      `Runtime command: ${command}`,
+      `Install: ${installHint}`,
+      `Authenticate: ${authHint}`,
+      error,
+    ].join("\n");
+    agentModal.classList.add("open");
+    agentModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeAgentModal() {
+    agentModal.classList.remove("open");
+    agentModal.setAttribute("aria-hidden", "true");
+  }
+
+  function renderAgentOptions(selectedAgent = currentAgent) {
+    agentSelect.innerHTML = "";
+    if (!availableAgents.length) {
+      const opt = document.createElement("option");
+      opt.textContent = "Loading…";
+      agentSelect.appendChild(opt);
+      return;
+    }
+    availableAgents.forEach(option => {
+      const opt = document.createElement("option");
+      opt.value = option.id;
+      opt.textContent = option.installed ? option.label : `${option.label} (Not installed)`;
+      opt.selected = option.id === selectedAgent;
+      agentSelect.appendChild(opt);
+    });
+  }
+
+  function syncAgentSwitcherState() {
+    const canSwitch = !!socket && socket.readyState === WebSocket.OPEN && !running && availableAgents.length > 0;
+    agentSelect.disabled = !canSwitch;
+    agentHelpBtn.disabled = availableAgents.length === 0;
+  }
+
   // ── thinking dots ────────────────────────────────────────────────────────────
   let thinkingMsg = null;
 
@@ -1761,6 +2022,7 @@
     inputEl.disabled = value;
     sendBtn.disabled = value;
     dailyBtn.disabled = value;
+    syncAgentSwitcherState();
   }
 
   function appendMessage(kind, label, content) {
@@ -1899,23 +2161,31 @@
     socket = new WebSocket(`${protocol}://${window.location.host}/ws`);
     suppressReconnect = false;
 
-    socket.addEventListener("open", () => updateStatus("Connected.", true));
+    socket.addEventListener("open", () => {
+      updateStatus("Connected.", true);
+      syncAgentSwitcherState();
+    });
     socket.addEventListener("close", () => {
       if (suppressReconnect) {
         updateStatus("Another browser tab already owns the active brain² session.", false);
+        syncAgentSwitcherState();
         return;
       }
       updateStatus("Disconnected. Retrying...", false);
       setRunning(false);
       activeAssistantMessage = null;
+      syncAgentSwitcherState();
       reconnectTimer = setTimeout(connect, 1000);
     });
     socket.addEventListener("message", (event) => {
       const payload = JSON.parse(event.data);
       if (payload.type === "session") {
         currentAgent = payload.agent || "unknown";
+        availableAgents = Array.isArray(payload.available_agents) ? payload.available_agents : availableAgents;
+        renderAgentOptions(currentAgent);
         sessionEl.textContent = `session: ${payload.session_id}`;
-        agentEl.textContent = `agent: ${currentAgent}`;
+        refreshConnectedIntegrations();
+        syncAgentSwitcherState();
         return;
       }
       if (payload.type === "session_conflict") {
@@ -1951,8 +2221,9 @@
       }
       if (payload.type === "chunk") {
         hideThinkingDots();
+        const messageAgent = payload.agent || currentAgent;
         if (!activeAssistantMessage) {
-          activeAssistantMessage = appendMessage("assistant", `agent · ${currentAgent}`, "");
+          activeAssistantMessage = appendMessage("assistant", assistantLabel(messageAgent), "");
         }
         activeAssistantMessage.body.innerHTML = marked.parse((activeAssistantMessage.body.innerText || "") + payload.content);
         messages.scrollTop = messages.scrollHeight;
@@ -1961,9 +2232,10 @@
       }
       if (payload.type === "done") {
         hideThinkingDots();
+        const messageAgent = payload.agent || currentAgent;
         if (payload.content) {
           if (!activeAssistantMessage) {
-            activeAssistantMessage = appendMessage("assistant", `agent · ${currentAgent}`, payload.content);
+            activeAssistantMessage = appendMessage("assistant", assistantLabel(messageAgent), payload.content);
           } else if (!activeAssistantMessage.body.innerText.trim()) {
             activeAssistantMessage.body.innerHTML = marked.parse(payload.content);
           }
@@ -1980,6 +2252,7 @@
       }
       if (payload.type === "error") {
         hideThinkingDots();
+        renderAgentOptions(currentAgent);
         appendMessage("error", "", payload.message);
         activeAssistantMessage = null;
         setRunning(false);
@@ -1987,6 +2260,43 @@
       }
     });
   }
+
+  agentSelect.addEventListener("change", () => {
+    const requestedAgent = agentSelect.value;
+    if (!requestedAgent || requestedAgent === currentAgent || !socket || socket.readyState !== WebSocket.OPEN || running) {
+      renderAgentOptions(currentAgent);
+      syncAgentSwitcherState();
+      return;
+    }
+    const option = findAgentOption(requestedAgent);
+    if (option && !option.installed) {
+      renderAgentOptions(currentAgent);
+      syncAgentSwitcherState();
+      openAgentModal(requestedAgent);
+      return;
+    }
+    agentSelect.disabled = true;
+    socket.send(JSON.stringify({ type: "switch_agent", agent: requestedAgent }));
+  });
+
+  agentHelpBtn.addEventListener("click", () => {
+    const missing = availableAgents.find(option => !option.installed);
+    openAgentModal((missing || findAgentOption(currentAgent) || availableAgents[0] || { id: "claude-code" }).id);
+  });
+
+  agentModalClose.addEventListener("click", closeAgentModal);
+  agentModal.addEventListener("click", (event) => {
+    if (event.target === agentModal) closeAgentModal();
+  });
+  agentModalRefresh.addEventListener("click", async () => {
+    agentModalRefresh.disabled = true;
+    try {
+      await refreshAgentAvailability();
+    } finally {
+      agentModalRefresh.disabled = false;
+      closeAgentModal();
+    }
+  });
 
   composer.addEventListener("submit", (event) => {
     event.preventDefault();

@@ -152,7 +152,7 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
 
     def _trigger_ingest(integration_id: str) -> None:
         asyncio.create_task(
-            ingest.run_ingest(runtime.app_cfg.vault.path, runtime.app_cfg.agent, integration_id, runtime.env_cfg)
+            ingest.run_ingest(runtime.app_cfg.vault.path, runtime.active_agent, integration_id, runtime.env_cfg)
         )
 
     # ── status ────────────────────────────────────────────────────────────────
@@ -160,8 +160,8 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
     @app.get("/api/integrations/status")
     async def integrations_status():
         env = runtime.env_cfg
-        mcp_config.sync_from_env(runtime.app_cfg.agent)
-        mcp = mcp_config.connected_integrations(runtime.app_cfg.agent)
+        mcp_config.sync_from_env(runtime.active_agent)
+        mcp = mcp_config.connected_integrations(runtime.active_agent)
         return JSONResponse({
             "gmail":    env.google_token_file.exists(),
             "calendar": env.google_token_file.exists(),

@@ -18,6 +18,9 @@ class SessionManager:
         self._run_task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
 
+    def current_agent(self) -> AgentName:
+        return self.agent_name
+
     def get_or_create_session(self) -> SessionState:
         if self._session is None:
             self._session_counter += 1
@@ -53,9 +56,9 @@ class SessionManager:
                 if self._session.lifecycle_state != "closed" and not self._session.running:
                     self._session.lifecycle_state = "idle"
 
-    def add_turn(self, role: str, content: str) -> None:
+    def add_turn(self, role: str, content: str, *, agent_name: AgentName | None = None) -> None:
         session = self.get_or_create_session()
-        session.history.append(Turn(role=role, content=content, created_at=utc_now()))
+        session.history.append(Turn(role=role, content=content, created_at=utc_now(), agent_name=agent_name))
 
     def mark_running(self, task: asyncio.Task) -> None:
         session = self.get_or_create_session()
@@ -63,10 +66,10 @@ class SessionManager:
         session.running = True
         session.lifecycle_state = "running"
 
-    def finish_run(self, assistant_content: str, modified_files: set[str]) -> None:
+    def finish_run(self, assistant_content: str, modified_files: set[str], *, agent_name: AgentName | None = None) -> None:
         session = self.get_or_create_session()
         if assistant_content:
-            session.history.append(Turn(role="assistant", content=assistant_content, created_at=utc_now()))
+            session.history.append(Turn(role="assistant", content=assistant_content, created_at=utc_now(), agent_name=agent_name))
         session.modified_files.update(modified_files)
         session.running = False
         session.lifecycle_state = "connected" if session.websocket_connected else "idle"
@@ -95,6 +98,15 @@ class SessionManager:
         session = self.get_or_create_session()
         session.lifecycle_state = "summarizing"
         return session
+
+    async def switch_agent(self, agent_name: AgentName) -> SessionState:
+        async with self._lock:
+            session = self.get_or_create_session()
+            if session.running:
+                raise RuntimeError("Cannot switch agents while a run is in progress.")
+            self.agent_name = agent_name
+            session.agent_name = agent_name
+            return session
 
     def close_session(self) -> SessionState | None:
         session = self._session

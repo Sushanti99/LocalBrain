@@ -10,8 +10,24 @@ from brain.utils import format_duration_minutes, next_available_session_summary_
 from brain.vault import write_text_file
 
 
+def session_agent_label(session: SessionState) -> str:
+    agents = {turn.agent_name for turn in session.history if turn.agent_name}
+    if len(agents) == 1:
+        return next(iter(agents))
+    if len(agents) > 1:
+        return "mixed"
+    return session.agent_name
+
+
+def _format_turn(turn) -> str:
+    speaker = turn.role.upper()
+    if turn.agent_name:
+        speaker = f"{speaker} ({turn.agent_name})"
+    return f"{speaker}: {turn.content}"
+
+
 def build_summary_prompt(session: SessionState) -> str:
-    history = "\n".join(f"{turn.role.upper()}: {turn.content}" for turn in session.history[-20:])
+    history = "\n".join(_format_turn(turn) for turn in session.history[-20:])
     modified_files = "\n".join(f"- {path}" for path in sorted(session.modified_files)) or "- none"
     return (
         "Summarize this Brain session as concise markdown with the headings "
@@ -63,7 +79,7 @@ async def write_session_summary(
             "---",
             f"date: {date.today().isoformat()}",
             f"session: {session_number}",
-            f"agent: {session.agent_name}",
+            f"agent: {session_agent_label(session)}",
             f"duration_minutes: {format_duration_minutes(session.started_at, ended_at)}",
             "---",
             "",

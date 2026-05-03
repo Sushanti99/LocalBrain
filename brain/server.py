@@ -17,12 +17,13 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 import re
 
+from brain.agents import available_agents
 from brain import integrations_api, mcp_config
 from brain.agent_backends import get_backend
 from brain.daily import generate_daily_note
 from brain.env_config import integration_status
 from brain.integration_context import fetch_tagged_integration_data
-from brain.models import AppConfig, EnvConfig
+from brain.models import AgentName, AppConfig, EnvConfig, SessionState
 from brain.prompts import build_chat_prompt, build_codex_prompt
 from brain.session import SessionManager
 from brain.summarizer import build_summary_prompt, fallback_summary, write_session_summary
@@ -34,6 +35,34 @@ class AppRuntime:
     app_cfg: AppConfig
     env_cfg: EnvConfig
     session_manager: SessionManager
+
+    @property
+    def active_agent(self) -> AgentName:
+        return self.session_manager.current_agent()
+
+    @property
+    def configured_agent(self) -> AgentName:
+        return self.app_cfg.agent
+
+    def available_agents_payload(self) -> list[dict[str, str | bool | None]]:
+        payload: list[dict[str, str | bool | None]] = []
+        for option in available_agents(self.app_cfg):
+            backend = get_backend(self.app_cfg, option.id)
+            validation = backend.validate_installation()
+            payload.append(
+                {
+                    "id": option.id,
+                    "label": option.label,
+                    "installed": validation.installed,
+                    "command": validation.command,
+                    "version": validation.version,
+                    "error": validation.error,
+                }
+            )
+        return payload
+
+    def installed_agent_ids(self) -> set[str]:
+        return {str(option["id"]) for option in self.available_agents_payload() if option.get("installed")}
 
 
 def create_app(runtime: AppRuntime) -> FastAPI:
@@ -72,13 +101,16 @@ def create_app(runtime: AppRuntime) -> FastAPI:
 
     @app.get("/api/status")
     async def get_status():
-        backend = get_backend(runtime.app_cfg)
+        backend = get_backend(runtime.app_cfg, runtime.active_agent)
         backend_status = backend.validate_installation()
         session = runtime.session_manager.current_session()
         return JSONResponse(
             {
                 "vault_path": str(runtime.app_cfg.vault.path),
-                "agent": runtime.app_cfg.agent,
+                "agent": runtime.active_agent,
+                "configured_agent": runtime.configured_agent,
+                "active_agent": runtime.active_agent,
+                "available_agents": runtime.available_agents_payload(),
                 "backend": {
                     "installed": backend_status.installed,
                     "command": backend_status.command,
@@ -204,7 +236,7 @@ def create_app(runtime: AppRuntime) -> FastAPI:
         runtime.session_manager.mark_summarizing()
         await runtime.session_manager.cancel_run()
         thoughts_dir = resolve_vault_paths(runtime.app_cfg).thoughts
-        backend = get_backend(runtime.app_cfg)
+        backend = get_backend(runtime.app_cfg, runtime.active_agent)
         summary_text = None
         try:
             summary_prompt = build_summary_prompt(session)
@@ -225,7 +257,7 @@ def create_app(runtime: AppRuntime) -> FastAPI:
             await websocket.close(code=1008)
             return
 
-        await websocket.send_json({"type": "session", "session_id": session.session_id, "agent": session.agent_name})
+        await websocket.send_json(_session_payload(runtime, session))
 
         try:
             while True:
@@ -237,6 +269,19 @@ def create_app(runtime: AppRuntime) -> FastAPI:
                 if message_type == "cancel":
                     await runtime.session_manager.cancel_run()
                     await websocket.send_json({"type": "status", "state": "cancelled"})
+                    continue
+                if message_type == "switch_agent":
+                    current_session = runtime.session_manager.get_or_create_session()
+                    if current_session.running:
+                        await websocket.send_json({"type": "error", "message": "Wait for the current run to finish before switching agents."})
+                        continue
+                    requested_agent = payload.get("agent")
+                    installed_ids = runtime.installed_agent_ids()
+                    if requested_agent not in installed_ids:
+                        await websocket.send_json({"type": "error", "message": "Selected agent is not installed or unavailable."})
+                        continue
+                    session = await runtime.session_manager.switch_agent(requested_agent)
+                    await websocket.send_json(_session_payload(runtime, session))
                     continue
                 if message_type != "message":
                     await websocket.send_json({"type": "error", "message": "Unsupported websocket message type."})
@@ -251,8 +296,9 @@ def create_app(runtime: AppRuntime) -> FastAPI:
                 if not content:
                     continue
 
-                runtime.session_manager.add_turn("user", content)
-                run_task = asyncio.create_task(_run_backend_stream(runtime, websocket, content))
+                run_agent = runtime.active_agent
+                runtime.session_manager.add_turn("user", content, agent_name=run_agent)
+                run_task = asyncio.create_task(_run_backend_stream(runtime, websocket, content, run_agent))
                 runtime.session_manager.mark_running(run_task)
         except WebSocketDisconnect:
             pass
@@ -265,7 +311,7 @@ def create_app(runtime: AppRuntime) -> FastAPI:
         vault_path = runtime.app_cfg.vault.path
 
         async def _stream():
-            async for line in run_seed_streaming(vault_path, agent=runtime.app_cfg.agent, env_cfg=runtime.env_cfg):
+            async for line in run_seed_streaming(vault_path, agent=runtime.active_agent, env_cfg=runtime.env_cfg):
                 yield line + "\n"
 
         return StreamingResponse(_stream(), media_type="text/plain")
@@ -277,9 +323,9 @@ def create_app(runtime: AppRuntime) -> FastAPI:
 _ACTION_TAG_RE = re.compile(r"\[action: @(\w+)\]")
 
 
-async def _run_backend_stream(runtime: AppRuntime, websocket: WebSocket, user_message: str) -> None:
-    backend = get_backend(runtime.app_cfg)
-    mcp_config.sync_from_env(runtime.app_cfg.agent)
+async def _run_backend_stream(runtime: AppRuntime, websocket: WebSocket, user_message: str, agent_name: AgentName) -> None:
+    backend = get_backend(runtime.app_cfg, agent_name)
+    mcp_config.sync_from_env(agent_name)
     session = runtime.session_manager.get_or_create_session()
     vault_paths = resolve_vault_paths(runtime.app_cfg)
 
@@ -310,7 +356,7 @@ async def _run_backend_stream(runtime: AppRuntime, websocket: WebSocket, user_me
             inject_canonical_prompt=False,
             live_integration_context=live_context,
         )
-        if runtime.app_cfg.agent == "claude-code"
+        if agent_name == "claude-code"
         else build_codex_prompt(runtime.app_cfg, session, clean_message, vault_paths, live_integration_context=live_context)
     )
     before = snapshot_vault_mtimes(runtime.app_cfg.vault.path)
@@ -320,7 +366,7 @@ async def _run_backend_stream(runtime: AppRuntime, websocket: WebSocket, user_me
         async for event in backend.stream(prompt, runtime.app_cfg.vault.path, _build_backend_env(runtime.env_cfg)):
             if event.type == "chunk" and event.content:
                 assistant_chunks.append(event.content)
-                await websocket.send_json({"type": "chunk", "content": event.content})
+                await websocket.send_json({"type": "chunk", "content": event.content, "agent": agent_name})
             elif event.type == "todos" and event.content:
                 await websocket.send_json({"type": "todos", "todos": event.content})
             elif event.type == "tool_use" and event.content:
@@ -329,19 +375,19 @@ async def _run_backend_stream(runtime: AppRuntime, websocket: WebSocket, user_me
                 after = snapshot_vault_mtimes(runtime.app_cfg.vault.path)
                 modified_files = diff_modified_files(before, after)
                 if assistant_chunks or modified_files:
-                    runtime.session_manager.finish_run("".join(assistant_chunks), modified_files)
+                    runtime.session_manager.finish_run("".join(assistant_chunks), modified_files, agent_name=agent_name)
                 else:
                     runtime.session_manager.fail_run()
                 await websocket.send_json({"type": "error", "message": event.content or "Backend error"})
                 return
         after = snapshot_vault_mtimes(runtime.app_cfg.vault.path)
-        runtime.session_manager.finish_run("".join(assistant_chunks), diff_modified_files(before, after))
-        await websocket.send_json({"type": "done", "content": "".join(assistant_chunks)})
+        runtime.session_manager.finish_run("".join(assistant_chunks), diff_modified_files(before, after), agent_name=agent_name)
+        await websocket.send_json({"type": "done", "content": "".join(assistant_chunks), "agent": agent_name})
     except asyncio.CancelledError:
         after = snapshot_vault_mtimes(runtime.app_cfg.vault.path)
         modified_files = diff_modified_files(before, after)
         if assistant_chunks or modified_files:
-            runtime.session_manager.finish_run("".join(assistant_chunks), modified_files)
+            runtime.session_manager.finish_run("".join(assistant_chunks), modified_files, agent_name=agent_name)
         else:
             runtime.session_manager.fail_run()
         await websocket.send_json({"type": "error", "message": "Agent run cancelled."})
@@ -350,7 +396,7 @@ async def _run_backend_stream(runtime: AppRuntime, websocket: WebSocket, user_me
         after = snapshot_vault_mtimes(runtime.app_cfg.vault.path)
         modified_files = diff_modified_files(before, after)
         if assistant_chunks or modified_files:
-            runtime.session_manager.finish_run("".join(assistant_chunks), modified_files)
+            runtime.session_manager.finish_run("".join(assistant_chunks), modified_files, agent_name=agent_name)
         else:
             runtime.session_manager.fail_run()
         await websocket.send_json({"type": "error", "message": str(exc)})
@@ -362,6 +408,15 @@ def _strip_frontmatter(content: str) -> str:
         if end != -1:
             return content[end + 4:].lstrip("\n")
     return content
+
+
+def _session_payload(runtime: AppRuntime, session: SessionState) -> dict[str, object]:
+    return {
+        "type": "session",
+        "session_id": session.session_id,
+        "agent": runtime.active_agent,
+        "available_agents": runtime.available_agents_payload(),
+    }
 
 
 def run_server(app_cfg: AppConfig, env_cfg: EnvConfig, *, open_browser: bool = True) -> None:

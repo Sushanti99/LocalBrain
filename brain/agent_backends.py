@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from brain.models import AppConfig, BackendEvent, BackendValidationResult
+from brain.models import AgentName, AppConfig, BackendEvent, BackendValidationResult
 
 NO_OUTPUT_TIMEOUT_SECONDS = 120
 
@@ -289,12 +289,13 @@ def parse_codex_jsonl_line(line: str) -> BackendEvent | None:
     return BackendEvent(type="status", content=event_type or "status", raw=payload)
 
 
-def get_backend(app_cfg: AppConfig):
-    if app_cfg.agent == "claude-code":
+def get_backend(app_cfg: AppConfig, agent_name: AgentName | None = None):
+    selected_agent = agent_name or app_cfg.agent
+    if selected_agent == "claude-code":
         return ClaudeCodeBackend(app_cfg)
-    if app_cfg.agent == "codex":
+    if selected_agent == "codex":
         return CodexBackend(app_cfg)
-    raise ValueError(f"Unsupported backend: {app_cfg.agent}")
+    raise ValueError(f"Unsupported backend: {selected_agent}")
 
 
 async def _read_stderr(process: asyncio.subprocess.Process) -> str:
