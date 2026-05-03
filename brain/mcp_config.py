@@ -5,6 +5,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 from typing import Iterable, Mapping
 
@@ -37,11 +40,35 @@ def _remote_server(
 # Path to the built-in Google MCP server script.
 _GOOGLE_MCP_SERVER = str(Path(__file__).parent / "mcp_google_server.py")
 
+
+def _find_python_with_mcp() -> str:
+    """Return the Python executable that has the mcp package installed."""
+    candidates = [
+        shutil.which("python3"),
+        shutil.which("python"),
+        sys.executable,
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            result = subprocess.run(
+                [candidate, "-c", "import mcp"],
+                capture_output=True, timeout=5,
+            )
+            if result.returncode == 0:
+                return candidate
+        except Exception:
+            continue
+    # Fallback — will fail at runtime with a clear error from the MCP server
+    return sys.executable
+
+
 # MCP server definitions per backend.
 _SERVERS: dict[str, dict[str, dict[str, object]]] = {
     "google": {
         "claude-code": _stdio_server(
-            "/opt/homebrew/anaconda3/bin/python3",
+            _find_python_with_mcp(),
             [_GOOGLE_MCP_SERVER],
             {
                 "credentials_file": "GOOGLE_CREDENTIALS_FILE",
@@ -49,7 +76,7 @@ _SERVERS: dict[str, dict[str, dict[str, object]]] = {
             },
         ),
         "codex": _stdio_server(
-            "/opt/homebrew/anaconda3/bin/python3",
+            _find_python_with_mcp(),
             [_GOOGLE_MCP_SERVER],
             {
                 "credentials_file": "GOOGLE_CREDENTIALS_FILE",
