@@ -23,6 +23,7 @@ def build_chat_prompt(
     integration_digest: DailyContext | None = None,
     *,
     inject_canonical_prompt: bool,
+    live_integration_context: str | None = None,
 ) -> str:
     today = date.today().isoformat()
     daily_content = read_daily_note(vault_paths, today)
@@ -71,6 +72,10 @@ def build_chat_prompt(
             f"Open Notion tasks: {len(integration_digest.notion_tasks)}"
         )
 
+    if live_integration_context:
+        sections.append("## Live Integration Data")
+        sections.append(live_integration_context)
+
     sections.append("## Current User Message")
     sections.append(user_message)
     return "\n\n".join(sections)
@@ -82,6 +87,7 @@ def build_codex_prompt(
     user_message: str,
     vault_paths: VaultPaths,
     integration_digest: DailyContext | None = None,
+    live_integration_context: str | None = None,
 ) -> str:
     return build_chat_prompt(
         app_cfg,
@@ -90,4 +96,5 @@ def build_codex_prompt(
         vault_paths,
         integration_digest,
         inject_canonical_prompt=True,
+        live_integration_context=live_integration_context,
     )

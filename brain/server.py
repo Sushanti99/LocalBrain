@@ -15,10 +15,13 @@ import uvicorn
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
+import re
+
 from brain import integrations_api, mcp_config
 from brain.agent_backends import get_backend
 from brain.daily import generate_daily_note
 from brain.env_config import integration_status
+from brain.integration_context import fetch_tagged_integration_data
 from brain.models import AppConfig, EnvConfig
 from brain.prompts import build_chat_prompt, build_codex_prompt
 from brain.session import SessionManager
@@ -271,21 +274,44 @@ def create_app(runtime: AppRuntime) -> FastAPI:
     return app
 
 
+_ACTION_TAG_RE = re.compile(r"\[action: @(\w+)\]")
+
+
 async def _run_backend_stream(runtime: AppRuntime, websocket: WebSocket, user_message: str) -> None:
     backend = get_backend(runtime.app_cfg)
     mcp_config.sync_from_env(runtime.app_cfg.agent)
     session = runtime.session_manager.get_or_create_session()
     vault_paths = resolve_vault_paths(runtime.app_cfg)
+
+    tags = _ACTION_TAG_RE.findall(user_message)
+    clean_message = _ACTION_TAG_RE.sub("", user_message).strip()
+
+    live_context: str | None = None
+    if tags:
+        try:
+            await websocket.send_json({"type": "tool_use", "tool": f"fetching {', '.join(tags)}"})
+            live_context = await asyncio.get_event_loop().run_in_executor(
+                None,
+                fetch_tagged_integration_data,
+                tags,
+                clean_message,
+                runtime.app_cfg,
+                runtime.env_cfg,
+            )
+        except Exception as exc:
+            live_context = f"Error fetching integration data: {exc}"
+
     prompt = (
         build_chat_prompt(
             runtime.app_cfg,
             session,
-            user_message,
+            clean_message,
             vault_paths,
             inject_canonical_prompt=False,
+            live_integration_context=live_context,
         )
         if runtime.app_cfg.agent == "claude-code"
-        else build_codex_prompt(runtime.app_cfg, session, user_message, vault_paths)
+        else build_codex_prompt(runtime.app_cfg, session, clean_message, vault_paths, live_integration_context=live_context)
     )
     before = snapshot_vault_mtimes(runtime.app_cfg.vault.path)
     assistant_chunks: list[str] = []

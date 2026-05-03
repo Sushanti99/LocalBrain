@@ -13,6 +13,72 @@ from brain.models import AppConfig, DailyContext, EnvConfig
 from brain.vault import read_vault
 
 
+def fetch_tagged_integration_data(
+    tags: list[str],
+    query: str,
+    app_cfg: AppConfig,
+    env_cfg: EnvConfig,
+) -> str:
+    """Fetch live data for @-tagged integrations and return a formatted context string."""
+    _ensure_project_root_on_path()
+    legacy_config = _load_legacy_module("config")
+    _configure_legacy_modules(legacy_config, app_cfg, env_cfg)
+
+    sections: list[str] = []
+    for tag in tags:
+        if tag in ("gmail", "email"):
+            sections.append(_fetch_gmail_context())
+        elif tag == "calendar":
+            sections.append(_fetch_calendar_context())
+        elif tag == "github":
+            if token := os.getenv("GITHUB_TOKEN"):
+                items = _fetch_github_items(token)
+                if items:
+                    lines = [f"- [{i['type'].upper()}] {i['title']} ({i['repo']})" for i in items]
+                    sections.append("### GitHub\n" + "\n".join(lines))
+        elif tag == "slack":
+            if token := os.getenv("SLACK_BOT_TOKEN"):
+                items = _fetch_slack_items(token)
+                if items:
+                    lines = [f"- #{i['channel']}: {i['text']}" for i in items]
+                    sections.append("### Slack\n" + "\n".join(lines))
+        elif tag == "notion":
+            try:
+                notion_client = _load_legacy_module("notion_client")
+                items = notion_client.get_open_tasks()
+                if items:
+                    lines = [f"- {t.get('title', '')}" for t in items[:20]]
+                    sections.append("### Notion Tasks\n" + "\n".join(lines))
+            except Exception:
+                pass
+
+    return "\n\n".join(s for s in sections if s)
+
+
+def _fetch_gmail_context() -> str:
+    try:
+        gmail_client = _load_legacy_module("gmail_client")
+        items = gmail_client.get_action_items(max_results=50)
+        if not items:
+            return "### Gmail\nNo recent emails found."
+        import json
+        return f"### Gmail (recent emails)\n{json.dumps(items, indent=2)}"
+    except Exception as exc:
+        return f"### Gmail\nError fetching emails: {exc}"
+
+
+def _fetch_calendar_context() -> str:
+    try:
+        calendar_client = _load_legacy_module("calendar_client")
+        events = calendar_client.get_todays_events()
+        if not events:
+            return "### Calendar\nNo events today."
+        import json
+        return f"### Calendar (today's events)\n{json.dumps(events, indent=2)}"
+    except Exception as exc:
+        return f"### Calendar\nError fetching events: {exc}"
+
+
 def build_daily_context(
     app_cfg: AppConfig,
     env_cfg: EnvConfig,
