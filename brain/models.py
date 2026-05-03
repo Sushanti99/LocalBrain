@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 AgentName = Literal["claude-code", "codex"]
 SessionLifecycleState = Literal["idle", "connected", "running", "summarizing", "closed"]
-BackendEventType = Literal["status", "chunk", "done", "error"]
+BackendEventType = Literal["status", "chunk", "done", "error", "todos", "tool_use"]
 TurnRole = Literal["user", "assistant"]
 
 

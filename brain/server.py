@@ -295,6 +295,10 @@ async def _run_backend_stream(runtime: AppRuntime, websocket: WebSocket, user_me
             if event.type == "chunk" and event.content:
                 assistant_chunks.append(event.content)
                 await websocket.send_json({"type": "chunk", "content": event.content})
+            elif event.type == "todos" and event.content:
+                await websocket.send_json({"type": "todos", "todos": event.content})
+            elif event.type == "tool_use" and event.content:
+                await websocket.send_json({"type": "tool_use", "tool": event.content})
             elif event.type == "error":
                 after = snapshot_vault_mtimes(runtime.app_cfg.vault.path)
                 modified_files = diff_modified_files(before, after)

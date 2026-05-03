@@ -212,6 +212,16 @@ def parse_claude_stream_line(line: str) -> BackendEvent | None:
     if event_type == "assistant":
         content_blocks = payload.get("message", {}).get("content", [])
         text = "".join(b["text"] for b in content_blocks if b.get("type") == "text" and b.get("text"))
+        # Emit todo list when TodoWrite is called
+        for block in content_blocks:
+            if block.get("type") == "tool_use" and block.get("name") == "TodoWrite":
+                todos = block.get("input", {}).get("todos", [])
+                if todos:
+                    return BackendEvent(type="todos", content=json.dumps(todos), raw=payload)
+        # Emit tool activity for non-todo tool calls
+        for block in content_blocks:
+            if block.get("type") == "tool_use" and block.get("name") != "TodoWrite":
+                return BackendEvent(type="tool_use", content=block.get("name", "tool"), raw=payload)
         if text:
             return BackendEvent(type="chunk", content=text, raw=payload)
         return BackendEvent(type="status", content="assistant", raw=payload)
