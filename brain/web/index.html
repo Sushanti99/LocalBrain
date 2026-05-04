@@ -1219,9 +1219,17 @@
       color: var(--ink);
       border: 1px solid rgba(17,17,17,0.1);
     }
+    .intg-action.copy {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid rgba(17,17,17,0.12);
+    }
     :root[data-theme="dark"] .intg-action.disconnect {
       background: rgba(255,255,255,0.08);
       color: var(--ink);
+      border-color: rgba(255,255,255,0.12);
+    }
+    :root[data-theme="dark"] .intg-action.copy {
       border-color: rgba(255,255,255,0.12);
     }
     .intg-action.soon {
@@ -1232,6 +1240,12 @@
     }
     :root[data-theme="dark"] .intg-action.soon {
       border-color: rgba(244,242,234,0.15);
+    }
+    .intg-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
     .intg-status {
@@ -2863,10 +2877,10 @@
   const INTEGRATIONS = [
     { id: "gmail", name: "Gmail", icon: "✉️", desc: "Pull recent emails and action items into your daily note.", oauth: true, color: "peach", category: "MAIL" },
     { id: "calendar", name: "Google Calendar", icon: "📅", desc: "Today's events and tomorrow's meetings in your note.", oauth: true, color: "blue", category: "CALENDAR" },
-    { id: "notion", name: "Notion", icon: "📄", desc: "Sync open tasks and pages from your Notion workspace.", inline: true, color: "lavender", category: "DOCS" },
-    { id: "slack", name: "Slack", icon: "💬", desc: "Surface unread threads and mentions as daily context.", inline: true, inlineType: "slack", color: "rose", category: "CHAT" },
-    { id: "github", name: "GitHub", icon: "🐙", desc: "Track open PRs, issues, and review requests.", inline: true, inlineType: "github", color: "yellow", category: "CODE" },
-    { id: "linear", name: "Linear", icon: "▲", desc: "Track issues and project updates from Linear.", inline: true, inlineType: "linear", color: "mint", category: "ISSUES" },
+    { id: "notion", name: "Notion", icon: "📄", desc: "Sync open tasks and pages from your Notion workspace.", inline: true, setupUrl: "https://www.notion.so/my-integrations", color: "lavender", category: "DOCS" },
+    { id: "slack", name: "Slack", icon: "💬", desc: "Surface unread threads and mentions as daily context.", inline: true, inlineType: "slack", setupUrl: "https://api.slack.com/apps", color: "rose", category: "CHAT" },
+    { id: "github", name: "GitHub", icon: "🐙", desc: "Track open PRs, issues, and review requests.", inline: true, inlineType: "github", setupUrl: "https://github.com/settings/tokens/new?scopes=repo,notifications,read:user", color: "yellow", category: "CODE" },
+    { id: "linear", name: "Linear", icon: "▲", desc: "Track issues and project updates from Linear.", inline: true, inlineType: "linear", setupUrl: "https://linear.app", color: "mint", category: "ISSUES" },
     { id: "whatsapp", name: "WhatsApp", icon: "📱", desc: "Bring WhatsApp message context into your vault.", soon: true, color: "blue", category: "CHAT" },
     { id: "imessage", name: "iMessage", icon: "💭", desc: "Pull iMessage threads on Mac into daily context.", soon: true, color: "peach", category: "CHAT" },
     { id: "linkedin", name: "LinkedIn", icon: "💼", desc: "Track messages and connection activity.", soon: true, color: "mint", category: "SOCIAL" },
@@ -2883,12 +2897,13 @@
       <h3>${name}</h3>
       <p>${desc}</p>
       ${connected ? `<div class="intg-status connected">connected</div>` : ""}
-      <div style="margin-top:auto;">
+      <div class="intg-actions" style="margin-top:auto;">
         ${soon
           ? `<button class="intg-action soon" disabled>coming soon</button>`
           : connected
             ? `<button class="intg-action disconnect" data-id="${id}" data-action="disconnect">Disconnect</button>`
-            : `<button class="intg-action connect" data-id="${id}" data-action="connect">Connect →</button>`
+            : `<button class="intg-action connect" data-id="${id}" data-action="connect">Connect →</button>
+               <button class="intg-action copy" data-id="${id}" data-action="copy">Copy link</button>`
         }
       </div>
       ${inline && !connected && !soon ? `
@@ -3021,11 +3036,42 @@
     return id;
   }
 
+  function integrationLink(integration) {
+    if (!integration) return window.location.href;
+    if (integration.inline && integration.setupUrl) return integration.setupUrl;
+    return new URL(`/api/integrations/${backendId(integration.id)}/connect`, window.location.origin).href;
+  }
+
+  async function copyIntegrationLink(integration, btn) {
+    const link = integrationLink(integration);
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      const scratch = document.createElement("textarea");
+      scratch.value = link;
+      scratch.setAttribute("readonly", "");
+      scratch.style.position = "fixed";
+      scratch.style.opacity = "0";
+      document.body.appendChild(scratch);
+      scratch.select();
+      document.execCommand("copy");
+      scratch.remove();
+    }
+    if (btn) {
+      const original = btn.textContent;
+      btn.textContent = "Copied";
+      setTimeout(() => { btn.textContent = original; }, 1400);
+    }
+  }
+
   async function handleIntAction(id, action) {
     const bid = backendId(id);
     const integration = INTEGRATIONS.find(i => i.id === id);
 
-    if (action === "connect") {
+    if (action === "copy") {
+      const btn = document.querySelector(`[data-id="${id}"][data-action="copy"]`);
+      await copyIntegrationLink(integration, btn);
+    } else if (action === "connect") {
       if (integration && integration.inline) {
         const expand = document.getElementById(`expand-${id}`);
         if (expand) expand.classList.toggle("open");
