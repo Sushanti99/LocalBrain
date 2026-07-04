@@ -242,6 +242,7 @@ def cmd_integrations(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    load_env_config()
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
