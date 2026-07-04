@@ -1,100 +1,27 @@
-"""Integration OAuth endpoints — writes MCP config on connect."""
+"""Integration OAuth endpoints — thin FastAPI wrappers around the shared core.
+
+Auth-url building and code exchange live in `brain/oauth_flows.py`; credential
+persistence (writing .env + MCP config) lives in `brain/integrations_core.py`.
+Both are transport-agnostic and shared with the CLI (`brain connect <provider>`).
+"""
 
 from __future__ import annotations
 
 import asyncio
-import os
-import secrets
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from brain import ingest, mcp_config
-from brain.models import DEFAULT_SERVER_PORT
+from brain import ingest, integrations_core, mcp_config, oauth_flows
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from brain.server import AppRuntime
 
-# ── Google ────────────────────────────────────────────────────────────────────
-
-GOOGLE_SCOPES = [
-    "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/calendar.readonly",
-]
-
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-
-def _load_google_credentials_from_file() -> tuple[str, str]:
-    """Read client_id/secret from credentials.json if env vars are not set."""
-    creds_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "")
-    if not creds_file:
-        return "", ""
-    try:
-        import json
-        data = json.loads(Path(creds_file).read_text())
-        cfg = data.get("web") or data.get("installed") or {}
-        return cfg.get("client_id", ""), cfg.get("client_secret", "")
-    except Exception:
-        return "", ""
-
-def _get_google_client_config() -> dict:
-    import json as _json, sys as _sys
-    client_id = GOOGLE_CLIENT_ID
-    client_secret = GOOGLE_CLIENT_SECRET
-    if not client_id or not client_secret:
-        client_id, client_secret = _load_google_credentials_from_file()
-    if not client_id or not client_secret:
-        # Look for credentials.json bundled alongside the executable (PyInstaller or source tree)
-        candidates = [
-            Path(getattr(_sys, "_MEIPASS", "")) / "credentials.json",
-            Path(__file__).parent.parent / "credentials.json",
-        ]
-        for p in candidates:
-            if p.exists():
-                try:
-                    data = _json.loads(p.read_text())
-                    cfg = data.get("web") or data.get("installed") or {}
-                    client_id = cfg.get("client_id", "")
-                    client_secret = cfg.get("client_secret", "")
-                    if client_id:
-                        break
-                except Exception:
-                    pass
-    return {
-        "web": {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [f"http://localhost:{DEFAULT_SERVER_PORT}/api/integrations/google/callback"],
-        }
-    }
-
-# ── GitHub ────────────────────────────────────────────────────────────────────
-
-GITHUB_CLIENT_ID     = os.getenv("GITHUB_CLIENT_ID", "")
-GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
-GITHUB_SCOPES        = "repo notifications read:user"
-
-# ── Slack ─────────────────────────────────────────────────────────────────────
-
-SLACK_CLIENT_ID     = os.getenv("SLACK_CLIENT_ID", "")
-SLACK_CLIENT_SECRET = os.getenv("SLACK_CLIENT_SECRET", "")
-SLACK_SCOPES        = "channels:read,channels:history,im:history,users:read"
-
-# ── Notion ────────────────────────────────────────────────────────────────────
-
-NOTION_CLIENT_ID     = os.getenv("NOTION_CLIENT_ID", "")
-NOTION_CLIENT_SECRET = os.getenv("NOTION_CLIENT_SECRET", "")
-
 # ── shared state ──────────────────────────────────────────────────────────────
 
 _oauth_states: dict[str, tuple] = {}
-ENV_FILE = Path(".env")  # overridden in register() from runtime.env_cfg
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -141,76 +68,31 @@ def _error_page(message: str) -> str:
 """)
 
 
-def _update_env(key: str, value: str) -> None:
-    lines: list[str] = []
-    found = False
-    if ENV_FILE.exists():
-        for line in ENV_FILE.read_text().splitlines():
-            if line.strip().startswith(f"{key}="):
-                lines.append(f"{key}={value}")
-                found = True
-            else:
-                lines.append(line)
-    if not found:
-        lines.append(f"{key}={value}")
-    ENV_FILE.write_text("\n".join(lines) + "\n")
-    os.environ[key] = value
-
-
-def _remove_env(key: str) -> None:
-    if not ENV_FILE.exists():
-        return
-    lines = [l for l in ENV_FILE.read_text().splitlines() if not l.strip().startswith(f"{key}=")]
-    ENV_FILE.write_text("\n".join(lines) + "\n")
-    os.environ.pop(key, None)
+def _github_slack_notion_linear_redirect_uri(request: Request, provider: str) -> str:
+    return str(request.base_url).rstrip("/") + f"/api/integrations/{provider}/callback"
 
 
 # ── route registration ────────────────────────────────────────────────────────
 
 def register(app: "FastAPI", runtime: "AppRuntime") -> None:
-    global ENV_FILE
-    project_env = Path(__file__).resolve().parent.parent / ".env"
-    if project_env.exists():
-        ENV_FILE = project_env
-    else:
-        from brain.env_config import user_app_support_dir
-        ENV_FILE = user_app_support_dir() / ".env"
-
     def _trigger_ingest(integration_id: str) -> None:
         asyncio.create_task(
             ingest.run_ingest(runtime.app_cfg.vault.path, runtime.active_agent, integration_id, runtime.env_cfg)
         )
 
+    def _finish_connect(creds: oauth_flows.ProviderCredentials, *, success_message: str) -> str:
+        integrations_core.apply_credentials(creds, agents=runtime.active_agent)
+        for integration_id in creds.ingest_ids:
+            _trigger_ingest(integration_id)
+        return success_message
+
     # ── status ────────────────────────────────────────────────────────────────
 
     @app.get("/api/integrations/status")
     async def integrations_status():
-        env = runtime.env_cfg
-        mcp_config.sync_from_env(runtime.active_agent)
-        mcp = mcp_config.connected_integrations(runtime.active_agent)
-        return JSONResponse({
-            "gmail":    env.google_token_file.exists(),
-            "calendar": env.google_token_file.exists(),
-            "notion":   bool(env.notion_api_key),
-            "github":   mcp.get("github", False),
-            "slack":    mcp.get("slack", False),
-            "linear":   mcp.get("linear", False),
-            "whatsapp": False,
-            "imessage": False,
-            "linkedin": False,
-        })
+        return JSONResponse(integrations_core.compute_status(runtime.active_agent))
 
     # ── Google OAuth ──────────────────────────────────────────────────────────
-
-    def _google_build_auth(cfg: dict) -> tuple[str, str, object]:
-        """Return (auth_url, redirect_uri, flow) using the registered redirect URI."""
-        from google_auth_oauthlib.flow import Flow
-        state = secrets.token_urlsafe(16)
-        redirect_uri = cfg["web"]["redirect_uris"][0]
-        flow = Flow.from_client_config(cfg, scopes=GOOGLE_SCOPES, redirect_uri=redirect_uri)
-        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline", state=state)
-        _oauth_states[state] = (flow, redirect_uri)
-        return auth_url, state, flow
 
     def _google_redirect_uri(request: Request) -> str:
         port = request.url.port or 80
@@ -219,9 +101,8 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
     @app.get("/api/integrations/google/auth-url")
     async def google_auth_url(request: Request):
         try:
-            cfg = _get_google_client_config()
-            cfg = {**cfg, "web": {**cfg["web"], "redirect_uris": [_google_redirect_uri(request)]}}
-            auth_url, _, _ = _google_build_auth(cfg)
+            auth_url, state, context = oauth_flows.google_build_auth_url(_google_redirect_uri(request))
+            _oauth_states[state] = context
             return JSONResponse({"url": auth_url})
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
@@ -229,9 +110,8 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
     @app.get("/api/integrations/google/connect")
     async def google_connect(request: Request):
         try:
-            cfg = _get_google_client_config()
-            cfg = {**cfg, "web": {**cfg["web"], "redirect_uris": [_google_redirect_uri(request)]}}
-            auth_url, _, _ = _google_build_auth(cfg)
+            auth_url, state, context = oauth_flows.google_build_auth_url(_google_redirect_uri(request))
+            _oauth_states[state] = context
             return RedirectResponse(auth_url)
         except Exception as exc:
             return HTMLResponse(_error_page(str(exc)))
@@ -240,233 +120,173 @@ def register(app: "FastAPI", runtime: "AppRuntime") -> None:
     async def google_callback(code: str = "", state: str = "", error: str = ""):
         if error:
             return HTMLResponse(_error_page(f"Google declined access: {error}"))
-        entry = _oauth_states.pop(state, None)
-        if not entry:
+        context = _oauth_states.pop(state, None)
+        if context is None:
             return HTMLResponse(_error_page("Session expired. Please try connecting again."))
-        flow, redirect_uri = entry
         try:
-            flow.redirect_uri = redirect_uri
-            flow.fetch_token(code=code)
-            token_file = runtime.env_cfg.google_token_file
-            token_file.write_text(flow.credentials.to_json())
-            _update_env("GOOGLE_TOKEN_FILE", str(token_file))
-            mcp_config.add_server("google", {
-                "token_file": str(token_file),
-                "credentials_file": str(runtime.env_cfg.google_credentials_file),
-            })
+            creds = oauth_flows.google_exchange_code(context, code, runtime.env_cfg)
+            message = _finish_connect(creds, success_message="Google connected — Gmail and Calendar are live.")
         except Exception as exc:
             return HTMLResponse(_error_page(str(exc)))
-        _trigger_ingest("gmail")
-        _trigger_ingest("calendar")
-        return HTMLResponse(_success_page("Google connected — Gmail and Calendar are live."))
+        return HTMLResponse(_success_page(message))
 
     @app.post("/api/integrations/google/disconnect")
     async def google_disconnect():
-        token_file = runtime.env_cfg.google_token_file
-        if token_file.exists():
-            token_file.unlink()
+        integrations_core.disconnect_integration("google", agents=runtime.active_agent)
         return JSONResponse({"status": "ok"})
 
     # ── GitHub OAuth ──────────────────────────────────────────────────────────
 
     @app.get("/api/integrations/github/connect")
     async def github_connect(request: Request):
-        if not GITHUB_CLIENT_ID:
+        if not oauth_flows.github_oauth_configured():
             return HTMLResponse(_error_page("GitHub OAuth not configured yet."))
-        state = secrets.token_urlsafe(16)
-        redirect_uri = str(request.base_url).rstrip("/") + "/api/integrations/github/callback"
-        _oauth_states[state] = ("github", redirect_uri)
-        auth_url = (
-            f"https://github.com/login/oauth/authorize"
-            f"?client_id={GITHUB_CLIENT_ID}"
-            f"&scope={GITHUB_SCOPES.replace(' ', '%20')}"
-            f"&state={state}"
-            f"&redirect_uri={redirect_uri}"
-        )
+        redirect_uri = _github_slack_notion_linear_redirect_uri(request, "github")
+        auth_url, state, context = oauth_flows.github_build_auth_url(redirect_uri)
+        _oauth_states[state] = context
         return RedirectResponse(auth_url)
 
     @app.get("/api/integrations/github/callback")
     async def github_callback(code: str = "", state: str = "", error: str = ""):
         if error:
             return HTMLResponse(_error_page(f"GitHub declined access: {error}"))
-        entry = _oauth_states.pop(state, None)
-        if not entry:
+        context = _oauth_states.pop(state, None)
+        if context is None:
             return HTMLResponse(_error_page("Session expired. Please try connecting again."))
-        _, redirect_uri = entry
         try:
-            import httpx
-            resp = httpx.post(
-                "https://github.com/login/oauth/access_token",
-                headers={"Accept": "application/json"},
-                data={"client_id": GITHUB_CLIENT_ID, "client_secret": GITHUB_CLIENT_SECRET,
-                      "code": code, "redirect_uri": redirect_uri},
-            )
-            data = resp.json()
-            token = data.get("access_token", "")
-            if not token:
-                return HTMLResponse(_error_page(f"No token returned: {data}"))
-            _update_env("GITHUB_TOKEN", token)
-            mcp_config.add_server("github", {"api_key": token})
+            creds = oauth_flows.github_exchange_code(context, code, runtime.env_cfg)
+            message = _finish_connect(creds, success_message="GitHub connected — brain² can now read your PRs and issues.")
         except Exception as exc:
             return HTMLResponse(_error_page(str(exc)))
-        _trigger_ingest("github")
-        return HTMLResponse(_success_page("GitHub connected — brain² can now read your PRs and issues."))
+        return HTMLResponse(_success_page(message))
 
     @app.post("/api/integrations/github/save")
     async def github_save(api_key: str = Form(...)):
-        token = api_key.strip()
-        if not token:
-            return JSONResponse({"status": "error", "message": "Token cannot be empty."}, status_code=400)
-        _update_env("GITHUB_TOKEN", token)
-        mcp_config.add_server("github", {"api_key": token})
-        _trigger_ingest("github")
+        result = oauth_flows.github_credentials_from_key(api_key)
+        if isinstance(result, str):
+            return JSONResponse({"status": "error", "message": result}, status_code=400)
+        _finish_connect(result, success_message="GitHub connected.")
         return JSONResponse({"status": "ok"})
 
     @app.post("/api/integrations/github/disconnect")
     async def github_disconnect():
-        _remove_env("GITHUB_TOKEN")
-        mcp_config.remove_server("github")
+        integrations_core.disconnect_integration("github", agents=runtime.active_agent)
         return JSONResponse({"status": "ok"})
 
     # ── Slack OAuth ───────────────────────────────────────────────────────────
 
     @app.get("/api/integrations/slack/connect")
     async def slack_connect(request: Request):
-        if not SLACK_CLIENT_ID:
+        if not oauth_flows.slack_oauth_configured():
             return HTMLResponse(_error_page("Slack OAuth not configured yet."))
-        state = secrets.token_urlsafe(16)
-        redirect_uri = str(request.base_url).rstrip("/") + "/api/integrations/slack/callback"
-        _oauth_states[state] = ("slack", redirect_uri)
-        from urllib.parse import urlencode
-        params = urlencode({
-            "client_id": SLACK_CLIENT_ID,
-            "scope": SLACK_SCOPES,
-            "redirect_uri": redirect_uri,
-            "state": state,
-        })
-        return RedirectResponse(f"https://slack.com/oauth/v2/authorize?{params}")
+        redirect_uri = _github_slack_notion_linear_redirect_uri(request, "slack")
+        auth_url, state, context = oauth_flows.slack_build_auth_url(redirect_uri)
+        _oauth_states[state] = context
+        return RedirectResponse(auth_url)
 
     @app.get("/api/integrations/slack/callback")
     async def slack_callback(code: str = "", state: str = "", error: str = ""):
         if error:
             return HTMLResponse(_error_page(f"Slack declined access: {error}"))
-        entry = _oauth_states.pop(state, None)
-        if not entry:
+        context = _oauth_states.pop(state, None)
+        if context is None:
             return HTMLResponse(_error_page("Session expired. Please try connecting again."))
-        _, redirect_uri = entry
         try:
-            import httpx
-            resp = httpx.post(
-                "https://slack.com/api/oauth.v2.access",
-                data={"client_id": SLACK_CLIENT_ID, "client_secret": SLACK_CLIENT_SECRET,
-                      "code": code, "redirect_uri": redirect_uri},
-            )
-            data = resp.json()
-            if not data.get("ok"):
-                return HTMLResponse(_error_page(f"Slack error: {data.get('error', 'unknown')}"))
-            bot_token = data.get("access_token", "")
-            team_id   = data.get("team", {}).get("id", "")
-            _update_env("SLACK_BOT_TOKEN", bot_token)
-            _update_env("SLACK_TEAM_ID", team_id)
-            mcp_config.add_server("slack", {"bot_token": bot_token, "team_id": team_id})
+            creds = oauth_flows.slack_exchange_code(context, code, runtime.env_cfg)
+            message = _finish_connect(creds, success_message="Slack connected — brain² can now read your messages.")
         except Exception as exc:
             return HTMLResponse(_error_page(str(exc)))
-        _trigger_ingest("slack")
-        return HTMLResponse(_success_page("Slack connected — brain² can now read your messages."))
+        return HTMLResponse(_success_page(message))
 
     @app.post("/api/integrations/slack/save")
     async def slack_save(api_key: str = Form(...)):
-        token = api_key.strip()
-        if not token.startswith("xoxb-"):
-            return JSONResponse({"status": "error", "message": "Doesn't look like a Slack bot token (should start with xoxb-)."}, status_code=400)
-        _update_env("SLACK_BOT_TOKEN", token)
-        mcp_config.add_server("slack", {"bot_token": token, "team_id": os.getenv("SLACK_TEAM_ID", "")})
-        _trigger_ingest("slack")
+        result = oauth_flows.slack_credentials_from_key(api_key)
+        if isinstance(result, str):
+            return JSONResponse({"status": "error", "message": result}, status_code=400)
+        _finish_connect(result, success_message="Slack connected.")
         return JSONResponse({"status": "ok"})
 
     @app.post("/api/integrations/slack/disconnect")
     async def slack_disconnect():
-        _remove_env("SLACK_BOT_TOKEN")
-        _remove_env("SLACK_TEAM_ID")
-        mcp_config.remove_server("slack")
+        integrations_core.disconnect_integration("slack", agents=runtime.active_agent)
         return JSONResponse({"status": "ok"})
 
     # ── Notion ────────────────────────────────────────────────────────────────
 
     @app.get("/api/integrations/notion/connect")
     async def notion_connect(request: Request):
-        if not NOTION_CLIENT_ID:
+        if not oauth_flows.notion_oauth_configured():
             return JSONResponse({"status": "inline"})
-        from urllib.parse import urlencode
-        state = secrets.token_urlsafe(16)
-        redirect_uri = str(request.base_url).rstrip("/") + "/api/integrations/notion/callback"
-        _oauth_states[state] = (None, redirect_uri)
-        params = urlencode({"client_id": NOTION_CLIENT_ID, "response_type": "code",
-                            "owner": "user", "redirect_uri": redirect_uri, "state": state})
-        return RedirectResponse(f"https://api.notion.com/v1/oauth/authorize?{params}")
+        redirect_uri = _github_slack_notion_linear_redirect_uri(request, "notion")
+        auth_url, state, context = oauth_flows.notion_build_auth_url(redirect_uri)
+        _oauth_states[state] = context
+        return RedirectResponse(auth_url)
 
     @app.get("/api/integrations/notion/callback")
     async def notion_callback(code: str = "", state: str = "", error: str = ""):
         if error:
             return HTMLResponse(_error_page(f"Notion declined access: {error}"))
-        if state not in _oauth_states:
+        context = _oauth_states.pop(state, None)
+        if context is None:
             return HTMLResponse(_error_page("Session expired. Please try connecting again."))
-        _, redirect_uri = _oauth_states.pop(state)
         try:
-            import base64
-            import httpx
-            creds = base64.b64encode(f"{NOTION_CLIENT_ID}:{NOTION_CLIENT_SECRET}".encode()).decode()
-            resp = httpx.post(
-                "https://api.notion.com/v1/oauth/token",
-                headers={"Authorization": f"Basic {creds}", "Content-Type": "application/json"},
-                json={"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri},
-            )
-            data = resp.json()
-            token = data.get("access_token", "")
-            if not token:
-                return HTMLResponse(_error_page(f"No token: {data}"))
-            _update_env("NOTION_API_KEY", token)
-            runtime.env_cfg.notion_api_key = token
-            mcp_config.add_server("notion", {"api_key": token})
+            creds = oauth_flows.notion_exchange_code(context, code, runtime.env_cfg)
+            message = _finish_connect(creds, success_message="Notion connected.")
         except Exception as exc:
             return HTMLResponse(_error_page(str(exc)))
-        _trigger_ingest("notion")
-        return HTMLResponse(_success_page("Notion connected."))
+        return HTMLResponse(_success_page(message))
 
     @app.post("/api/integrations/notion/save")
     async def notion_save(api_key: str = Form(...)):
-        key = api_key.strip()
-        if not (key.startswith("secret_") or key.startswith("ntn_")):
-            return JSONResponse({"status": "error", "message": "Doesn't look like a Notion secret (should start with secret_ or ntn_)."}, status_code=400)
-        _update_env("NOTION_API_KEY", key)
-        runtime.env_cfg.notion_api_key = key
-        mcp_config.add_server("notion", {"api_key": key})
-        _trigger_ingest("notion")
+        result = oauth_flows.notion_credentials_from_key(api_key)
+        if isinstance(result, str):
+            return JSONResponse({"status": "error", "message": result}, status_code=400)
+        runtime.env_cfg.notion_api_key = result.env_updates.get("NOTION_API_KEY", runtime.env_cfg.notion_api_key)
+        _finish_connect(result, success_message="Notion connected.")
         return JSONResponse({"status": "ok"})
 
     @app.post("/api/integrations/notion/disconnect")
     async def notion_disconnect():
-        _remove_env("NOTION_API_KEY")
+        integrations_core.disconnect_integration("notion", agents=runtime.active_agent)
         runtime.env_cfg.notion_api_key = ""
-        mcp_config.remove_server("notion")
         return JSONResponse({"status": "ok"})
 
     # ── Linear ───────────────────────────────────────────────────────────────
 
+    @app.get("/api/integrations/linear/connect")
+    async def linear_connect(request: Request):
+        if not oauth_flows.linear_oauth_configured():
+            return JSONResponse({"status": "inline"})
+        redirect_uri = _github_slack_notion_linear_redirect_uri(request, "linear")
+        auth_url, state, context = oauth_flows.linear_build_auth_url(redirect_uri)
+        _oauth_states[state] = context
+        return RedirectResponse(auth_url)
+
+    @app.get("/api/integrations/linear/callback")
+    async def linear_callback(code: str = "", state: str = "", error: str = ""):
+        if error:
+            return HTMLResponse(_error_page(f"Linear declined access: {error}"))
+        context = _oauth_states.pop(state, None)
+        if context is None:
+            return HTMLResponse(_error_page("Session expired. Please try connecting again."))
+        try:
+            creds = oauth_flows.linear_exchange_code(context, code, runtime.env_cfg)
+            message = _finish_connect(creds, success_message="Linear connected.")
+        except Exception as exc:
+            return HTMLResponse(_error_page(str(exc)))
+        return HTMLResponse(_success_page(message))
+
     @app.post("/api/integrations/linear/save")
     async def linear_save(api_key: str = Form(...)):
-        key = api_key.strip()
-        if not key:
-            return JSONResponse({"status": "error", "message": "API key cannot be empty."}, status_code=400)
-        _update_env("LINEAR_API_KEY", key)
-        mcp_config.add_server("linear", {"api_key": key})
-        _trigger_ingest("linear")
+        result = oauth_flows.linear_credentials_from_key(api_key)
+        if isinstance(result, str):
+            return JSONResponse({"status": "error", "message": result}, status_code=400)
+        _finish_connect(result, success_message="Linear connected.")
         return JSONResponse({"status": "ok"})
 
     @app.post("/api/integrations/linear/disconnect")
     async def linear_disconnect():
-        _remove_env("LINEAR_API_KEY")
-        mcp_config.remove_server("linear")
+        integrations_core.disconnect_integration("linear", agents=runtime.active_agent)
         return JSONResponse({"status": "ok"})
 
     # ── fallback ──────────────────────────────────────────────────────────────

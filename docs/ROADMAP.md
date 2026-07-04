@@ -38,7 +38,7 @@ Mac app  ──(Supabase JWT)──▶  Supabase Edge Functions / Postgres
 
 ### Open questions
 
-- Provider-side: register one OAuth app per provider for BrainSquared (Google done, GitHub/Slack/Notion/Linear pending)
+- Provider-side: register one OAuth app per provider for BrainSquared (Google, Linear done via `brain connect`/web UI; GitHub/Slack/Notion pending)
 - Where data fetching runs — server-side (privacy concern: data passes through our backend) vs. client-side using server-issued tokens (riskier but private)
 - How to handle the existing local-token users on upgrade (migration: prompt re-auth on first launch after update)
 

@@ -42,6 +42,49 @@ def _find_dotenv() -> Path | None:
     return None
 
 
+def resolve_env_file() -> Path:
+    """Return the .env file to read from — and the one new credentials get written to.
+
+    Reuses the same search order as `_find_dotenv()`; if nothing exists yet, falls
+    back to the project root (if writable) or the per-user App Support dir.
+    """
+    existing = _find_dotenv()
+    if existing is not None:
+        return existing
+    project_root = Path(__file__).resolve().parent.parent
+    if os.access(project_root, os.W_OK):
+        return project_root / ".env"
+    return user_app_support_dir() / ".env"
+
+
+def update_env(key: str, value: str, *, env_file: Path | None = None) -> None:
+    """Set KEY=value in the resolved .env file (and the current process env)."""
+    target = env_file if env_file is not None else resolve_env_file()
+    lines: list[str] = []
+    found = False
+    if target.exists():
+        for line in target.read_text().splitlines():
+            if line.strip().startswith(f"{key}="):
+                lines.append(f"{key}={value}")
+                found = True
+            else:
+                lines.append(line)
+    if not found:
+        lines.append(f"{key}={value}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("\n".join(lines) + "\n")
+    os.environ[key] = value
+
+
+def remove_env(key: str, *, env_file: Path | None = None) -> None:
+    """Remove KEY from the resolved .env file (and the current process env)."""
+    target = env_file if env_file is not None else resolve_env_file()
+    if target.exists():
+        lines = [l for l in target.read_text().splitlines() if not l.strip().startswith(f"{key}=")]
+        target.write_text("\n".join(lines) + "\n")
+    os.environ.pop(key, None)
+
+
 def load_env_config(env_file: str | Path | None = None) -> EnvConfig:
     if env_file is None:
         dotenv_path = _find_dotenv()

@@ -11,6 +11,7 @@ from brain.agent_backends import get_backend
 from brain.app_config import load_app_config
 from brain.env_config import integration_status, load_env_config
 from brain.init_vault import initialize_vault
+from brain.models import DEFAULT_SERVER_PORT
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,6 +59,22 @@ def build_parser() -> argparse.ArgumentParser:
     seed_parser.add_argument("--from-calendar", action="store_true", help="Import commitments from Google Calendar")
     seed_parser.add_argument("--dry-run", action="store_true", help="Collect data and write seed input but skip agent synthesis")
     seed_parser.set_defaults(func=cmd_seed)
+
+    connect_parser = subparsers.add_parser("connect", help="Connect a third-party integration")
+    connect_parser.add_argument("provider", help="google | github | slack | notion | linear")
+    connect_parser.add_argument("--agent", choices=["claude-code", "codex"], help="Defaults to both backends")
+    connect_parser.add_argument("--no-browser", action="store_true", help="Print the auth URL instead of opening a browser")
+    connect_parser.add_argument("--port", type=int, default=DEFAULT_SERVER_PORT)
+    connect_parser.set_defaults(func=cmd_connect)
+
+    disconnect_parser = subparsers.add_parser("disconnect", help="Disconnect a third-party integration")
+    disconnect_parser.add_argument("provider", help="google | github | slack | notion | linear")
+    disconnect_parser.add_argument("--agent", choices=["claude-code", "codex"], help="Defaults to both backends")
+    disconnect_parser.set_defaults(func=cmd_disconnect)
+
+    integrations_parser = subparsers.add_parser("integrations", help="Show connected integration status")
+    integrations_parser.add_argument("--agent", choices=["claude-code", "codex"])
+    integrations_parser.set_defaults(func=cmd_integrations)
 
     return parser
 
@@ -171,6 +188,56 @@ def cmd_seed(args: argparse.Namespace) -> int:
     if result.sources_used:
         print(f"\nVault seeded at: {result.vault_path}")
         print(f"Sources used: {', '.join(result.sources_used)}")
+    return 0
+
+
+def cmd_connect(args: argparse.Namespace) -> int:
+    from brain import integrations_core
+
+    spec = integrations_core.PROVIDERS.get(args.provider)
+    if spec is None:
+        print(f"Unknown provider {args.provider!r}. Supported: {', '.join(integrations_core.PROVIDERS)}", file=sys.stderr)
+        return 1
+
+    try:
+        if spec.build_auth_url is not None and spec.oauth_configured():
+            creds = integrations_core.connect_via_browser(spec, port=args.port, open_browser=not args.no_browser)
+        elif spec.credentials_from_key is not None:
+            key = input(spec.key_prompt or f"Paste your {spec.label} API key: ").strip()
+            result = spec.credentials_from_key(key)
+            if isinstance(result, str):
+                print(result, file=sys.stderr)
+                return 1
+            creds = result
+        else:
+            print(f"{spec.label} requires OAuth client credentials — see .env.example.", file=sys.stderr)
+            return 1
+    except (OSError, RuntimeError, TimeoutError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    integrations_core.apply_credentials(creds, agents=args.agent)
+    print(f"{spec.label} connected.")
+    return 0
+
+
+def cmd_disconnect(args: argparse.Namespace) -> int:
+    from brain import integrations_core
+
+    if args.provider not in integrations_core.PROVIDERS:
+        print(f"Unknown provider {args.provider!r}. Supported: {', '.join(integrations_core.PROVIDERS)}", file=sys.stderr)
+        return 1
+    integrations_core.disconnect_integration(args.provider, agents=args.agent)
+    print(f"{args.provider} disconnected.")
+    return 0
+
+
+def cmd_integrations(args: argparse.Namespace) -> int:
+    from brain import integrations_core
+
+    status = integrations_core.compute_status(args.agent)
+    for name, connected in status.items():
+        print(f"  {name:10s} {'connected' if connected else 'not connected'}")
     return 0
 
 

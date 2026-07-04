@@ -272,18 +272,24 @@ def run_seed(
             result.sources_used.append(f"Obsidian ({sources.from_obsidian})")
 
     if sources.from_notion:
-        print("  Collecting Notion ...")
-        text = collect_notion_context(env_cfg)
-        if text:
-            sections.append(text)
-            result.sources_used.append("Notion")
+        if not env_cfg.notion_api_key:
+            print("  Notion isn't connected — run 'brain connect notion' first.")
+        else:
+            print("  Collecting Notion ...")
+            text = collect_notion_context(env_cfg)
+            if text:
+                sections.append(text)
+                result.sources_used.append("Notion")
 
     if sources.from_gmail:
-        print("  Collecting Gmail (last 90 days) ...")
-        text = collect_gmail_context(env_cfg)
-        if text:
-            sections.append(text)
-            result.sources_used.append("Gmail")
+        if not env_cfg.google_token_file.exists():
+            print("  Gmail isn't connected — run 'brain connect google' first.")
+        else:
+            print("  Collecting Gmail (last 90 days) ...")
+            text = collect_gmail_context(env_cfg)
+            if text:
+                sections.append(text)
+                result.sources_used.append("Gmail")
 
     if sources.from_calendar:
         print("  Collecting Calendar ...")
