@@ -11,7 +11,10 @@ import sys
 from pathlib import Path
 from typing import Iterable, Mapping
 
-CLAUDE_SETTINGS = Path.home() / ".claude" / "settings.json"
+# Claude Code reads user-scope MCP servers from ~/.claude.json's top-level
+# "mcpServers" key (verified via `claude mcp add`/`claude mcp list`) — not from
+# ~/.claude/settings.json, which the CLI silently ignores for this purpose.
+CLAUDE_CONFIG = Path.home() / ".claude.json"
 CODEX_CONFIG = Path.home() / ".codex" / "config.toml"
 
 def _stdio_server(command: str, args: list[str], env_map: Mapping[str, str]) -> dict[str, object]:
@@ -35,6 +38,15 @@ def _remote_server(
     if features:
         data["features"] = dict(features)
     return data
+
+
+def _http_remote_server(url: str, *, auth_header_credential_field: str) -> dict[str, object]:
+    """A remote MCP server for Claude Code, authenticated via a literal Bearer header."""
+    return {
+        "transport": "remote",
+        "url": url,
+        "auth_header_credential_field": auth_header_credential_field,
+    }
 
 
 # Path to the built-in Google MCP server script.
@@ -109,10 +121,12 @@ _SERVERS: dict[str, dict[str, dict[str, object]]] = {
         ),
     },
     "linear": {
-        "claude-code": _stdio_server(
-            "npx",
-            ["-y", "@linear/mcp"],
-            {"api_key": "LINEAR_API_KEY"},
+        # Linear's MCP is a hosted remote endpoint, not an npm package — there is
+        # no "@linear/mcp" package. Claude Code needs a literal "Authorization:
+        # Bearer <token>" header (unlike Codex, which references an env var name).
+        "claude-code": _http_remote_server(
+            "https://mcp.linear.app/mcp",
+            auth_header_credential_field="api_key",
         ),
         "codex": _remote_server(
             "https://mcp.linear.app/mcp",
@@ -148,17 +162,17 @@ def _server_spec(integration_id: str, agent: str) -> dict[str, object] | None:
 
 
 def _read_claude_settings() -> dict:
-    if not CLAUDE_SETTINGS.exists():
+    if not CLAUDE_CONFIG.exists():
         return {}
     try:
-        return json.loads(CLAUDE_SETTINGS.read_text(encoding="utf-8"))
+        return json.loads(CLAUDE_CONFIG.read_text(encoding="utf-8"))
     except Exception:
         return {}
 
 
 def _write_claude_settings(settings: dict) -> None:
-    CLAUDE_SETTINGS.parent.mkdir(parents=True, exist_ok=True)
-    CLAUDE_SETTINGS.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+    CLAUDE_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    CLAUDE_CONFIG.write_text(json.dumps(settings, indent=2), encoding="utf-8")
 
 
 def _read_codex_config() -> str:
@@ -230,16 +244,33 @@ def _build_env(server_spec: Mapping[str, object], credentials: Mapping[str, str]
     return {env_key: credentials.get(field, "") for field, env_key in env_map.items()}
 
 
+def _claude_server_entry(server_spec: Mapping[str, object], credentials: Mapping[str, str]) -> dict[str, object] | None:
+    transport = server_spec.get("transport")
+    if transport == "stdio":
+        return {
+            "command": server_spec["command"],
+            "args": server_spec["args"],
+            "env": _build_env(server_spec, credentials),
+        }
+    if transport == "remote":
+        entry: dict[str, object] = {"type": "http", "url": server_spec["url"]}
+        credential_field = server_spec.get("auth_header_credential_field")
+        if isinstance(credential_field, str) and credential_field:
+            token = credentials.get(credential_field, "")
+            entry["headers"] = {"Authorization": f"Bearer {token}"}
+        return entry
+    return None
+
+
 def _add_claude_server(integration_id: str, credentials: Mapping[str, str]) -> None:
     server_spec = _server_spec(integration_id, "claude-code")
-    if server_spec is None or server_spec.get("transport") != "stdio":
+    if server_spec is None:
+        return
+    entry = _claude_server_entry(server_spec, credentials)
+    if entry is None:
         return
     settings = _read_claude_settings()
-    settings.setdefault("mcpServers", {})[integration_id] = {
-        "command": server_spec["command"],
-        "args": server_spec["args"],
-        "env": _build_env(server_spec, credentials),
-    }
+    settings.setdefault("mcpServers", {})[integration_id] = entry
     _write_claude_settings(settings)
 
 

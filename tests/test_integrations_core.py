@@ -5,7 +5,7 @@ from brain.oauth_flows import ProviderCredentials
 def test_apply_credentials_writes_env_and_mcp_config(tmp_path, monkeypatch):
     claude_settings = tmp_path / "claude-settings.json"
     codex_config = tmp_path / "codex-config.toml"
-    monkeypatch.setattr(mcp_config, "CLAUDE_SETTINGS", claude_settings)
+    monkeypatch.setattr(mcp_config, "CLAUDE_CONFIG", claude_settings)
     monkeypatch.setattr(mcp_config, "CODEX_CONFIG", codex_config)
     env_file = tmp_path / ".env"
     monkeypatch.setattr("brain.env_config.resolve_env_file", lambda: env_file)
@@ -24,7 +24,7 @@ def test_apply_credentials_writes_env_and_mcp_config(tmp_path, monkeypatch):
 def test_disconnect_integration_removes_env_and_mcp_config(tmp_path, monkeypatch):
     claude_settings = tmp_path / "claude-settings.json"
     codex_config = tmp_path / "codex-config.toml"
-    monkeypatch.setattr(mcp_config, "CLAUDE_SETTINGS", claude_settings)
+    monkeypatch.setattr(mcp_config, "CLAUDE_CONFIG", claude_settings)
     monkeypatch.setattr(mcp_config, "CODEX_CONFIG", codex_config)
     env_file = tmp_path / ".env"
     env_file.write_text("GITHUB_TOKEN=ghp_test\nOTHER=keep\n")

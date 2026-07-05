@@ -1,10 +1,12 @@
+import json
+
 from brain import mcp_config
 
 
 def test_add_server_writes_stdio_server_for_both_backends(tmp_path, monkeypatch):
     claude_settings = tmp_path / "claude-settings.json"
     codex_config = tmp_path / "codex-config.toml"
-    monkeypatch.setattr(mcp_config, "CLAUDE_SETTINGS", claude_settings)
+    monkeypatch.setattr(mcp_config, "CLAUDE_CONFIG", claude_settings)
     monkeypatch.setattr(mcp_config, "CODEX_CONFIG", codex_config)
 
     mcp_config.add_server("github", {"api_key": "ghp_test"})
@@ -20,7 +22,7 @@ def test_add_server_writes_stdio_server_for_both_backends(tmp_path, monkeypatch)
 def test_add_server_writes_linear_remote_codex_config(tmp_path, monkeypatch):
     claude_settings = tmp_path / "claude-settings.json"
     codex_config = tmp_path / "codex-config.toml"
-    monkeypatch.setattr(mcp_config, "CLAUDE_SETTINGS", claude_settings)
+    monkeypatch.setattr(mcp_config, "CLAUDE_CONFIG", claude_settings)
     monkeypatch.setattr(mcp_config, "CODEX_CONFIG", codex_config)
 
     mcp_config.add_server("linear", {"api_key": "lin_api_test"}, agents="codex")
@@ -35,10 +37,25 @@ def test_add_server_writes_linear_remote_codex_config(tmp_path, monkeypatch):
     assert not claude_settings.exists()
 
 
+def test_add_server_writes_linear_remote_claude_config(tmp_path, monkeypatch):
+    claude_settings = tmp_path / "claude-settings.json"
+    monkeypatch.setattr(mcp_config, "CLAUDE_CONFIG", claude_settings)
+
+    mcp_config.add_server("linear", {"api_key": "lin_api_test"}, agents="claude-code")
+
+    settings = json.loads(claude_settings.read_text(encoding="utf-8"))
+    linear_entry = settings["mcpServers"]["linear"]
+    assert linear_entry == {
+        "type": "http",
+        "url": "https://mcp.linear.app/mcp",
+        "headers": {"Authorization": "Bearer lin_api_test"},
+    }
+
+
 def test_connected_integrations_are_backend_specific(tmp_path, monkeypatch):
     claude_settings = tmp_path / "claude-settings.json"
     codex_config = tmp_path / "codex-config.toml"
-    monkeypatch.setattr(mcp_config, "CLAUDE_SETTINGS", claude_settings)
+    monkeypatch.setattr(mcp_config, "CLAUDE_CONFIG", claude_settings)
     monkeypatch.setattr(mcp_config, "CODEX_CONFIG", codex_config)
 
     mcp_config.add_server("github", {"api_key": "ghp_claude"}, agents="claude-code")

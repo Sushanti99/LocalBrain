@@ -41,6 +41,12 @@ def build_parser() -> argparse.ArgumentParser:
     status_parser.add_argument("--agent", choices=["claude-code", "codex"])
     status_parser.set_defaults(func=cmd_status)
 
+    chat_parser = subparsers.add_parser("chat", help="Chat with your Brain agent in the terminal")
+    chat_parser.add_argument("--vault", help="Vault path")
+    chat_parser.add_argument("--config", help="Explicit path to brain.config.yaml")
+    chat_parser.add_argument("--agent", choices=["claude-code", "codex"])
+    chat_parser.set_defaults(func=cmd_chat)
+
     daily_parser = subparsers.add_parser("daily", help="Generate today's daily note")
     daily_parser.add_argument("--vault", help="Vault path")
     daily_parser.add_argument("--config", help="Explicit path to brain.config.yaml")
@@ -157,6 +163,75 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(f"  Google credentials: {'present' if integrations['google'] else 'missing'}")
     print(f"  Notion: {'configured' if integrations['notion'] else 'missing'}")
     print(f"  News feeds: {'configured' if integrations['news'] else 'default-only'}")
+    return 0
+
+
+def cmd_chat(args: argparse.Namespace) -> int:
+    import asyncio
+
+    from brain import mcp_config
+    from brain.prompts import build_chat_prompt, build_codex_prompt
+    from brain.server import _build_backend_env
+    from brain.session import SessionManager
+    from brain.vault import diff_modified_files, resolve_vault_paths, snapshot_vault_mtimes
+
+    app_cfg = load_app_config(vault_path=args.vault, config_path=args.config, agent_override=args.agent)
+    env_cfg = load_env_config()
+    agent_name = app_cfg.agent
+
+    backend = get_backend(app_cfg, agent_name)
+    validation = backend.validate_installation()
+    if not validation.installed:
+        print(validation.error or f"Backend unavailable: {agent_name}", file=sys.stderr)
+        return 1
+
+    mcp_config.sync_from_env(agent_name)
+    session_manager = SessionManager(agent_name)
+    vault_paths = resolve_vault_paths(app_cfg)
+
+    print(f"brain chat — agent: {agent_name}, vault: {app_cfg.vault.path}")
+    print("Type a message, or 'exit'/Ctrl+D to quit.\n")
+
+    async def run() -> None:
+        while True:
+            try:
+                user_message = input("you> ").strip()
+            except EOFError:
+                print()
+                return
+            if not user_message:
+                continue
+            if user_message.lower() in ("exit", "quit"):
+                return
+
+            session = session_manager.get_or_create_session()
+            session_manager.add_turn("user", user_message, agent_name=agent_name)
+            prompt = (
+                build_chat_prompt(app_cfg, session, user_message, vault_paths, inject_canonical_prompt=False, env_cfg=env_cfg)
+                if agent_name == "claude-code"
+                else build_codex_prompt(app_cfg, session, user_message, vault_paths)
+            )
+
+            before = snapshot_vault_mtimes(app_cfg.vault.path)
+            assistant_chunks: list[str] = []
+            print("brain> ", end="", flush=True)
+            try:
+                async for event in backend.stream(prompt, app_cfg.vault.path, _build_backend_env(env_cfg)):
+                    if event.type == "chunk" and event.content:
+                        assistant_chunks.append(event.content)
+                        print(event.content, end="", flush=True)
+                    elif event.type == "tool_use" and event.content:
+                        print(f"\n[tool: {event.content}]", flush=True)
+                    elif event.type == "error":
+                        print(f"\n[error] {event.content}")
+            except Exception as exc:
+                print(f"\n[error] {exc}")
+            print("\n")
+
+            after = snapshot_vault_mtimes(app_cfg.vault.path)
+            session_manager.finish_run("".join(assistant_chunks), diff_modified_files(before, after), agent_name=agent_name)
+
+    asyncio.run(run())
     return 0
 
 

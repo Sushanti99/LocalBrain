@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -74,6 +75,9 @@ def load_app_config(
     agent_override: str | None = None,
     port_override: int | None = None,
 ) -> AppConfig:
+    if vault_path is None and config_path is None:
+        vault_path = os.getenv("VAULT_PATH") or None
+
     resolved_config_path: Path | None = None
 
     if config_path is not None:
