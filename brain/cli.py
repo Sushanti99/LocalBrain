@@ -173,6 +173,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
     from brain.prompts import build_chat_prompt, build_codex_prompt
     from brain.server import _build_backend_env
     from brain.session import SessionManager
+    from brain.summarizer import build_summary_prompt, fallback_summary, write_session_summary
     from brain.vault import diff_modified_files, resolve_vault_paths, snapshot_vault_mtimes
 
     app_cfg = load_app_config(vault_path=args.vault, config_path=args.config, agent_override=args.agent)
@@ -190,7 +191,23 @@ def cmd_chat(args: argparse.Namespace) -> int:
     vault_paths = resolve_vault_paths(app_cfg)
 
     print(f"brain chat — agent: {agent_name}, vault: {app_cfg.vault.path}")
-    print("Type a message, or 'exit'/Ctrl+D to quit.\n")
+    print("Type a message, 'end' to summarize and close the session, or 'exit'/Ctrl+D to quit.\n")
+
+    async def end_session() -> None:
+        session = session_manager.current_session()
+        if session is None or not session.history:
+            print("No conversation to summarize yet.")
+            return
+        session_manager.mark_summarizing()
+        print("Summarizing session...")
+        try:
+            summary_prompt = build_summary_prompt(session)
+            summary_text = await backend.summarize(summary_prompt, app_cfg.vault.path, _build_backend_env(env_cfg))
+        except Exception:
+            summary_text = fallback_summary(session)
+        summary_path = await write_session_summary(vault_paths.thoughts, session, agent_summary_text=summary_text)
+        session_manager.close_session()
+        print(f"Session summary written to {summary_path}")
 
     async def run() -> None:
         while True:
@@ -202,6 +219,9 @@ def cmd_chat(args: argparse.Namespace) -> int:
             if not user_message:
                 continue
             if user_message.lower() in ("exit", "quit"):
+                return
+            if user_message.lower() == "end":
+                await end_session()
                 return
 
             session = session_manager.get_or_create_session()
