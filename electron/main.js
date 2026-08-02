@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, Menu, globalShortcut, screen, Notification, systemPreferences } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const http = require('http');
 const net = require('net');
 const fs = require('fs');
+const os = require('os');
 
 const PROTOCOL = 'brainsquared';
 const isDev = !app.isPackaged;
@@ -146,6 +147,136 @@ function ping(port) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// ── Quick capture (screenshot → todo) ────────────────────────────────────────
+let captureWindow = null;
+
+function triggerQuickCapture() {
+  if (process.platform === 'darwin' && systemPreferences.getMediaAccessStatus('screen') !== 'granted') {
+    promptForScreenRecordingPermission();
+    return;
+  }
+  const tmpPath = path.join(os.tmpdir(), `brain-capture-${Date.now()}.png`);
+  execFile('/usr/sbin/screencapture', ['-i', tmpPath], () => {
+    // User pressed Esc during selection → no file written; treat as a silent no-op.
+    if (!fs.existsSync(tmpPath)) return;
+    openCaptureWindow(tmpPath);
+  });
+}
+
+function promptForScreenRecordingPermission() {
+  dialog
+    .showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Screen Recording access needed',
+      message: 'BrainSquared needs Screen Recording access to capture screenshots for Quick Capture.',
+      detail:
+        "Quick Capture (⌘⇧K) takes a screenshot and adds it to today's note as a todo. " +
+        'To let it capture your screen, open System Settings → Privacy & Security → Screen Recording ' +
+        'and enable it for BrainSquared, then try the shortcut again.',
+      buttons: ['Open System Settings', 'Not Now'],
+      defaultId: 0,
+      cancelId: 1,
+    })
+    .then(({ response }) => {
+      if (response === 0) {
+        shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture');
+      }
+    });
+}
+
+function openCaptureWindow(imagePath) {
+  if (captureWindow) {
+    try { captureWindow.close(); } catch (_) {}
+  }
+  captureWindow = new BrowserWindow({
+    width: 420,
+    height: 420,
+    frame: false,
+    resizable: false,
+    alwaysOnTop: true,
+    show: false,
+    center: true,
+    backgroundColor: '#00000000',
+    transparent: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-capture.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+  captureWindow.imagePath = imagePath;
+  captureWindow.once('ready-to-show', () => captureWindow.show());
+  captureWindow.loadFile(path.join(__dirname, 'renderer', 'capture.html'));
+}
+
+function postCapture(text, imageBase64) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ text, image_base64: imageBase64 });
+    const req = http.request(
+      {
+        host: '127.0.0.1',
+        port: serverPort,
+        path: '/api/capture',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      },
+      (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) resolve(JSON.parse(data));
+          else reject(new Error(`Save failed (${res.statusCode}): ${data}`));
+        });
+      }
+    );
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+ipcMain.handle('capture-get-image', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const imagePath = win && win.imagePath;
+  if (!imagePath || !fs.existsSync(imagePath)) return null;
+  const data = fs.readFileSync(imagePath);
+  return `data:image/png;base64,${data.toString('base64')}`;
+});
+
+ipcMain.handle('capture-submit', async (event, text) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const imagePath = win && win.imagePath;
+  if (!imagePath || !fs.existsSync(imagePath)) throw new Error('No screenshot to submit.');
+  const caption = (text || '').trim() || 'Screenshot';
+  const imageBase64 = fs.readFileSync(imagePath).toString('base64');
+  await postCapture(caption, imageBase64);
+  try { fs.unlinkSync(imagePath); } catch (_) {}
+
+  if (Notification.isSupported()) {
+    const notification = new Notification({
+      title: 'Added to BrainSquared',
+      body: caption === 'Screenshot' ? "Saved to today's note." : caption,
+    });
+    notification.on('click', () => {
+      if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
+    });
+    notification.show();
+  }
+
+  // Leave the popup open a beat so the renderer can show its own success state,
+  // then close it regardless of whether the renderer is still around to ask.
+  if (win) setTimeout(() => { try { win.close(); } catch (_) {} }, 900);
+  return true;
+});
+
+ipcMain.handle('capture-cancel', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const imagePath = win && win.imagePath;
+  if (imagePath) { try { fs.unlinkSync(imagePath); } catch (_) {} }
+  if (win) win.close();
+});
+
 // ── Window ───────────────────────────────────────────────────────────────────
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -165,7 +296,7 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
+  if (isDev && process.env.BRAIN_DEVTOOLS) mainWindow.webContents.openDevTools({ mode: 'detach' });
 
   mainWindow.webContents.on('did-finish-load', () => {
     if (pendingSignOut) {
@@ -261,6 +392,7 @@ ipcMain.handle('load-onboarding', async () => {
 app.whenReady().then(() => {
   createWindow();
   buildMenu();
+  globalShortcut.register('CommandOrControl+Shift+K', triggerQuickCapture);
 });
 
 app.on('window-all-closed', () => {
@@ -273,6 +405,10 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', () => stopServer());
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+});
 
 function buildMenu() {
   const isMac = process.platform === 'darwin';

@@ -226,8 +226,35 @@ async function signOut() {
 
 window.electron.onSignOut(signOut);
 
+// Reads the persisted session straight out of localStorage (no network call),
+// so a returning signed-in user skips straight to the vault/launch steps
+// instead of waiting on a session refresh round-trip before rendering anything.
+function peekCachedUser() {
+  try {
+    const raw = localStorage.getItem('brainsquared-auth');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.user || parsed?.currentSession?.user || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 (async () => {
+  const cachedUser = peekCachedUser();
+  if (cachedUser) {
+    state.user = cachedUser;
+    advance();
+    // Validate/refresh the session quietly in the background — if it turns out
+    // to be stale, the next real auth call will surface that; we just don't
+    // want a slow or unreachable network check blocking app startup.
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user) state.user = data.session.user;
+    }).catch(() => {});
+    return;
+  }
+
   const { data } = await supabase.auth.getSession();
   if (data.session?.user) {
     state.user = data.session.user;

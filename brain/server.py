@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
 import socket
 import webbrowser
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import Timer
 
@@ -21,7 +22,8 @@ import re
 
 def _plain_task_text(text: str) -> str:
     """Strip markdown formatting and task prefix to get comparable plain text."""
-    t = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)   # [label](url) → label
+    t = re.sub(r'!\[\[[^\]]+\]\]', '', text)             # ![[image.png]] → (removed)
+    t = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', t)       # [label](url) → label
     t = re.sub(r'`([^`]+)`', r'\1', t)                   # `code` → code
     t = re.sub(r'\*([^*]+)\*', r'\1', t)                 # *em* → em
     t = re.sub(r'^-\s+\[[x ]\]\s+', '', t.strip())       # strip task prefix
@@ -47,7 +49,7 @@ def _api_key_status() -> dict[str, str | bool | None]:
 from brain.agents import available_agents
 from brain import integrations_api, mcp_config
 from brain.agent_backends import get_backend
-from brain.daily import generate_daily_note
+from brain.daily import append_capture_task, generate_daily_note
 from brain.env_config import integration_status
 from brain.integration_context import fetch_tagged_integration_data
 from brain.models import AgentName, AppConfig, EnvConfig, SessionState
@@ -215,6 +217,45 @@ def create_app(runtime: AppRuntime) -> FastAPI:
                 break
         today_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return JSONResponse({"status": "ok"})
+
+    @app.post("/api/capture")
+    async def post_capture(body: dict):
+        text = (body.get("text") or "").strip()
+        image_b64 = body.get("image_base64") or ""
+        if not text:
+            return JSONResponse({"status": "error", "message": "text required"}, status_code=400)
+        if not image_b64:
+            return JSONResponse({"status": "error", "message": "image_base64 required"}, status_code=400)
+
+        try:
+            image_bytes = base64.b64decode(image_b64)
+        except Exception:
+            return JSONResponse({"status": "error", "message": "invalid image_base64"}, status_code=400)
+
+        vault_paths = resolve_vault_paths(runtime.app_cfg)
+        attachments_dir = vault_paths.root / "attachments"
+        attachments_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{datetime.now().strftime('%Y-%m-%d-%H%M%S')}.png"
+        (attachments_dir / filename).write_bytes(image_bytes)
+
+        attachment_relpath = f"attachments/{filename}"
+        try:
+            note_path = append_capture_task(runtime.app_cfg, runtime.env_cfg, text, attachment_relpath)
+        except Exception as exc:
+            return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
+
+        return JSONResponse({"status": "ok", "path": str(note_path), "attachment": attachment_relpath})
+
+    @app.get("/api/attachments/{filename:path}")
+    async def get_attachment(filename: str):
+        vault_paths = resolve_vault_paths(runtime.app_cfg)
+        attachments_dir = (vault_paths.root / "attachments").resolve()
+        full_path = (attachments_dir / filename).resolve()
+        if not str(full_path).startswith(str(attachments_dir)):
+            return JSONResponse({"status": "error", "message": "Invalid path."}, status_code=400)
+        if not full_path.exists():
+            return JSONResponse({"status": "error", "message": "Not found."}, status_code=404)
+        return FileResponse(full_path)
 
     @app.get("/api/daily")
     async def get_daily(offset: int = Query(default=0)):

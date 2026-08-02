@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;">
+  <title>Quick Capture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-app-region: drag;
+    }
+    :root {
+      --paper: #fff;
+      --ink: #111;
+      --ink-muted: #5A5A5A;
+      --rule: rgba(17,17,17,0.1);
+      --sunken: #F0EEE8;
+      --danger: #E86B5A;
+      --success: #4C9A6A;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #1C1C1A;
+        --ink: #F4F2EA;
+        --ink-muted: #9E9A90;
+        --rule: rgba(244,242,234,0.12);
+        --sunken: #262622;
+        --danger: #E8877A;
+        --success: #6BBE8A;
+      }
+    }
+    .card {
+      background: var(--paper);
+      color: var(--ink);
+      border: 1px solid var(--rule);
+      border-radius: 20px;
+      padding: 16px;
+      width: 388px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.22);
+      -webkit-app-region: no-drag;
+    }
+    .thumb-wrap {
+      width: 100%;
+      height: 200px;
+      border-radius: 14px;
+      background: var(--sunken);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .thumb-wrap img {
+      max-width: 100%; max-height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .field {
+      width: 100%;
+      padding: 11px 14px;
+      font: inherit;
+      font-size: 14px;
+      color: var(--ink);
+      background: var(--sunken);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      outline: none;
+    }
+    .field:focus { border-color: var(--rule); }
+    .field::placeholder { color: var(--ink-muted); }
+    .field:disabled { opacity: 0.6; }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    button {
+      font: inherit; border: 0; cursor: pointer; border-radius: 999px;
+      padding: 9px 18px; font-weight: 500; font-size: 13px;
+    }
+    .primary { background: var(--ink); color: var(--paper); }
+    .primary:hover { opacity: 0.85; }
+    .primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .secondary { background: transparent; color: var(--ink-muted); }
+    .secondary:hover { color: var(--ink); }
+    .msg { font-size: 12px; color: var(--ink-muted); margin-top: 8px; min-height: 14px; }
+    .msg.err { color: var(--danger); }
+    .msg.ok { color: var(--success); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="thumb-wrap"><img id="thumb" alt="Screenshot preview"></div>
+    <input class="field" id="captionInput" type="text" placeholder="Add a note (optional)…" autofocus>
+    <div class="msg" id="msg"></div>
+    <div class="row">
+      <button class="secondary" id="cancelBtn" type="button">Cancel (esc)</button>
+      <button class="primary" id="submitBtn" type="button">Add to Today</button>
+    </div>
+  </div>
+  <script src="./capture.js"></script>
+</body>
+</html>

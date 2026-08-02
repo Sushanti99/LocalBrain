@@ -9,7 +9,8 @@ from pathlib import Path
 
 def _plain_task_text(text: str) -> str:
     """Strip markdown formatting and task prefix to get comparable plain text."""
-    t = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+    t = re.sub(r'!\[\[[^\]]+\]\]', '', text)
+    t = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', t)
     t = re.sub(r'`([^`]+)`', r'\1', t)
     t = re.sub(r'\*([^*]+)\*', r'\1', t)
     t = re.sub(r'^-\s+\[[x ]\]\s+', '', t.strip())
@@ -257,6 +258,46 @@ def render_daily_note(bundle: DailyContext, enabled_integrations: set[str] | Non
 
     lines += ["", "---", f"*Generated at {generated_at} by brain*"]
     return "\n".join(lines)
+
+
+_CAPTURES_HEADER = "## Quick Captures"
+
+
+def append_capture_task(app_cfg: AppConfig, env_cfg: EnvConfig, text: str, attachment_relpath: str) -> Path:
+    """Append a screenshot-backed task to today's daily note, creating the note if needed."""
+    vault_paths = resolve_vault_paths(app_cfg)
+    daily_path = vault_paths.daily / f"{_today()}.md"
+    if not daily_path.exists():
+        generate_daily_note(app_cfg, env_cfg)
+
+    task_line = f"- [ ] {text} ![[{attachment_relpath}]]"
+    content = daily_path.read_text(encoding="utf-8")
+    lines = content.splitlines()
+
+    if _CAPTURES_HEADER in lines:
+        header_index = lines.index(_CAPTURES_HEADER)
+        insert_at = header_index + 1
+        while (
+            insert_at < len(lines)
+            and not lines[insert_at].startswith("## ")
+            and not lines[insert_at].startswith("# ")
+            and lines[insert_at].strip() != "---"
+        ):
+            insert_at += 1
+        # Insert before the trailing blank line that separates this section from the next.
+        while insert_at > header_index + 1 and not lines[insert_at - 1].strip():
+            insert_at -= 1
+        lines.insert(insert_at, task_line)
+        content = "\n".join(lines)
+    else:
+        section = f"{_CAPTURES_HEADER}\n\n{task_line}"
+        footer_marker = "\n\n---"
+        if footer_marker in content:
+            content = content.replace(footer_marker, f"\n\n{section}{footer_marker}", 1)
+        else:
+            content += f"\n\n{section}"
+
+    return write_text_file(daily_path, content, overwrite=True)
 
 
 def write_daily_note(app_cfg: AppConfig, content: str, *, force: bool = False) -> Path:

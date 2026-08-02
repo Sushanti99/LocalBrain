@@ -713,6 +713,16 @@
       text-decoration: line-through;
       color: var(--ink-muted);
     }
+    .capture-thumb {
+      display: block;
+      max-width: 320px;
+      max-height: 220px;
+      width: auto;
+      border-radius: 10px;
+      margin-top: 6px;
+      border: 1px solid var(--rule);
+      object-fit: cover;
+    }
     .daily-path {
       font-family: 'JetBrains Mono', monospace;
       font-size: 11px;
@@ -1874,6 +1884,13 @@
 </div>
 
 <script>
+  function renderVaultMarkdown(md) {
+    const withThumbs = (md || "").replace(
+      /!\[\[([^\]]+)\]\]/g,
+      (_match, relPath) => `<img src="/api/attachments/${relPath.replace(/^attachments\//, "")}" class="capture-thumb">`
+    );
+    return marked.parse(withThumbs);
+  }
   const messages = document.getElementById("messages");
   const statusEl = document.getElementById("status");
   const statusDot = document.getElementById("statusDot");
@@ -2415,7 +2432,7 @@
       setDailyStatus(`Viewing ${payload.label.toLowerCase()}'s note.`);
       dailyContentEl.innerHTML = `
         <article class="daily-note">
-          ${marked.parse(payload.content)}
+          ${renderVaultMarkdown(payload.content)}
           <div class="daily-path">Path: <code>${payload.path}</code></div>
         </article>
       `;
@@ -2943,7 +2960,7 @@
     try {
       const resp = await fetch(`/api/notes/${encodeURI(note.path)}`);
       const data = await resp.json();
-      bodyEl.innerHTML = `<div class="daily-note">${marked.parse(data.content || "*(empty)*")}</div>`;
+      bodyEl.innerHTML = `<div class="daily-note">${renderVaultMarkdown(data.content || "*(empty)*")}</div>`;
     } catch {
       bodyEl.innerHTML = `<div class="vault-empty">Failed to load file.</div>`;
     }
